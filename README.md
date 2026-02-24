@@ -15,4 +15,6 @@ Cloud / Hosting:
 APIs / Integrations: JWT Authentication
 Other Tools: Git & GitHub, Figma (UI/UX design), Insomnia (API testing)
 
+We convert each room’s geographic coordinates into an H3 hexagonal index at resolution 9. This index is stored in the database and used for efficient regional filtering, nearby search using k-ring, and campus congestion analytics through GROUP BY aggregation. Instead of performing expensive GIS joins, we operate on indexed hex values, which improves performance and scalability.
+
 to run this file, you need to first of all have FastAPI and then run.
