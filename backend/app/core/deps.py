@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session
+import logging
 
 from app.core.security import decode_token
 from app.db import get_session
@@ -8,6 +9,9 @@ from app.models.user import User
 from app.models.enums import UserRole
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
+
+logger = logging.getLogger(__name__)
 
 
 def get_current_user(
@@ -18,7 +22,8 @@ def get_current_user(
 
     try:
         payload = decode_token(token)
-        user_id: int = payload.get("user_id")
+        raw_user_id = payload.get("user_id")
+        user_id = int(raw_user_id) if raw_user_id is not None else None
 
         if user_id is None:
             raise HTTPException(
@@ -40,6 +45,25 @@ def get_current_user(
             detail="User not found"
         )
 
+    return user
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+    session: Session = Depends(get_session),
+) -> User | None:
+    if credentials is None:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        raw_user_id = payload.get("user_id")
+        user_id = int(raw_user_id) if raw_user_id is not None else None
+        if user_id is None:
+            return None
+    except Exception:
+        return None
+    user = session.get(User, user_id)
+    logger.info("optional_user resolved: user_id=%s university_id=%s", user_id, getattr(user, "university_id", None))
     return user
 
 

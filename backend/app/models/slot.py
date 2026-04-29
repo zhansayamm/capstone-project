@@ -1,4 +1,3 @@
-from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from datetime import datetime
@@ -8,6 +7,7 @@ class Slot(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     professor_id: int = Field(foreign_key="users.id")
+    university_id: Optional[int] = Field(default=None, foreign_key="universities.id")
 
     start_time: datetime
     end_time: datetime

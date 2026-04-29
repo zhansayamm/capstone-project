@@ -4,4 +4,14 @@ sqlmodel
 python-jose
 passlib[bcrypt]
 bcrypt
-pydantic
+pydantic[email]
+email-validator
+python-dotenv
+pytest
+httpx
+ics
+celery
+redis
+slowapi
+pyinstrument
+pillow

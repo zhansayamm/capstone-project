@@ -1,0 +1,38 @@
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
+
+from app.core.deps import get_current_user
+from app.db import get_session
+from app.models.user import User
+from app.schemas.notification import NotificationRead
+from app.services.notification_service import NotificationService
+
+notification_router = APIRouter()
+
+
+@notification_router.get("/me", response_model=list[NotificationRead])
+def get_my_notifications(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    items = NotificationService.get_user_notifications(session, current_user)
+    return [NotificationRead.model_validate(n) for n in items]
+
+
+@notification_router.get("/unread", response_model=list[NotificationRead])
+def get_unread_notifications(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    items = NotificationService.get_unread_notifications(session, current_user)
+    return [NotificationRead.model_validate(n) for n in items]
+
+
+@notification_router.patch("/{notification_id}/read", response_model=NotificationRead)
+def mark_notification_read(
+    notification_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    n = NotificationService.mark_as_read(session, current_user, notification_id)
+    return NotificationRead.model_validate(n)

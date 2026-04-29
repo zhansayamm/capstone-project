@@ -13,21 +13,21 @@ def get_stats(
     current_user = Depends(require_admin),
     session: Session = Depends(get_session)
 ):
-    return AdminService.get_totals(session=session)
+    return AdminService.get_totals(session=session, admin=current_user)
 
 @router.get("/bookings")
 def booking_analytics(
     current_user = Depends(require_admin),
     session: Session = Depends(get_session)
 ):
-    return AdminService.get_booking_stats(session=session)
+    return AdminService.get_booking_stats(session=session, admin=current_user)
 
 @router.get("/top-professors")
 def top_professors(
     current_user = Depends(require_admin),
     session: Session = Depends(get_session)
 ):
-    return AdminService.get_top_professors(session=session)
+    return AdminService.get_top_professors(session=session, admin=current_user)
 
 
 @router.get("/top-classrooms")
@@ -35,4 +35,4 @@ def top_classrooms(
     current_user = Depends(require_admin),
     session: Session = Depends(get_session)
 ):
-    return AdminService.get_top_classrooms(session=session)
+    return AdminService.get_top_classrooms(session=session, admin=current_user)

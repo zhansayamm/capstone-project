@@ -4,8 +4,12 @@ from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"])
 
-def hash_password(password):
-    return pwd_context.hash(password)
+def hash_password(password: str):
+    # bcrypt only uses the first 72 bytes/characters of the password.
+    # Prevent backend crashes and avoid silent truncation.
+    if len(password) > 72:
+        raise ValueError("Password too long (max 72 characters)")
+    return pwd_context.hash(password[:72])
 
 def verify_password(password, hash):
     return pwd_context.verify(password, hash)
