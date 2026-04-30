@@ -13,7 +13,7 @@ logger = get_task_logger(__name__)
 
 
 @celery_app.task(name="app.tasks.image_tasks.compress_image_task")
-def compress_image_task(image_bytes: bytes, filename: str) -> None:
+def compress_image_task(image_bytes: bytes, filename: str) -> int:
     logger.info("Image task executed: filename=%s", filename)
     original_size = len(image_bytes)
 
@@ -38,4 +38,6 @@ def compress_image_task(image_bytes: bytes, filename: str) -> None:
         )
         session.add(image_obj)
         session.commit()
+        session.refresh(image_obj)
+        return int(image_obj.id)
 

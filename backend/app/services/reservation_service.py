@@ -7,11 +7,13 @@ from app.models.reservation import Reservation
 from app.models.user import User
 from app.schemas.reservation import ReservationCreate
 from app.services.notification_service import NotificationService
+from app.utils.datetime_utils import ensure_utc, is_within_business_hours
 
 
 class ReservationService:
     @staticmethod
-    def _to_read(*, reservation: Reservation, classroom: Classroom) -> dict:
+    def _to_read(*, session: Session, reservation: Reservation, classroom: Classroom) -> dict:
+        user = session.get(User, reservation.user_id)
         return {
             "id": reservation.id,
             "classroom_id": reservation.classroom_id,
@@ -21,6 +23,7 @@ class ReservationService:
             "start_time": reservation.start_time,
             "end_time": reservation.end_time,
             "created_at": reservation.created_at,
+            "user": user,
         }
 
     @staticmethod
@@ -39,9 +42,34 @@ class ReservationService:
         if data.start_time >= data.end_time:
             raise ConflictException("Invalid time range")
 
+        if not is_within_business_hours(data.start_time, data.end_time):
+            raise ConflictException("Reservations must be within 08:30–17:30 UTC on the same day")
+
         now = datetime.now(timezone.utc)
         if data.start_time <= now:
             raise ConflictException("Cannot create a reservation in the past")
+
+        # Student daily reservation limit: max 1 hour per UTC day.
+        day = ensure_utc(data.start_time).date()
+        day_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        day_end = day_start.replace(hour=23, minute=59, second=59, microsecond=999999)
+        existing_for_day = session.exec(
+            select(Reservation).where(
+                Reservation.user_id == user.id,
+                Reservation.university_id == user.university_id,
+                Reservation.start_time >= day_start,
+                Reservation.start_time <= day_end,
+            )
+        ).all()
+        already_seconds = 0.0
+        for r in existing_for_day:
+            r_start = ensure_utc(r.start_time)
+            r_end = ensure_utc(r.end_time)
+            already_seconds += max(0.0, (r_end - r_start).total_seconds())
+
+        new_seconds = (ensure_utc(data.end_time) - ensure_utc(data.start_time)).total_seconds()
+        if already_seconds + new_seconds > 3600:
+            raise ConflictException("Daily reservation limit exceeded (max 1 hour per day)")
 
         existing_reservations = session.exec(
             select(Reservation).where(
@@ -79,7 +107,7 @@ class ReservationService:
             f"Classroom {classroom.name} reserved at {reservation.start_time}",
             subject="Reservation Confirmed",
         )
-        return ReservationService._to_read(reservation=reservation, classroom=classroom)
+        return ReservationService._to_read(session=session, reservation=reservation, classroom=classroom)
 
     @staticmethod
     def get_user_reservations(
@@ -96,7 +124,7 @@ class ReservationService:
         if upcoming:
             query = query.where(Reservation.start_time > datetime.now(timezone.utc))
         rows = session.exec(query.offset(offset).limit(limit)).all()
-        return [ReservationService._to_read(reservation=r, classroom=c) for r, c in rows]
+        return [ReservationService._to_read(session=session, reservation=r, classroom=c) for r, c in rows]
 
     @staticmethod
     def get_all_reservations(
@@ -119,4 +147,4 @@ class ReservationService:
         if upcoming:
             query = query.where(Reservation.start_time > datetime.now(timezone.utc))
         rows = session.exec(query.offset(offset).limit(limit)).all()
-        return [ReservationService._to_read(reservation=r, classroom=c) for r, c in rows]
+        return [ReservationService._to_read(session=session, reservation=r, classroom=c) for r, c in rows]

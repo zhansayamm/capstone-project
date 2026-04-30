@@ -7,6 +7,7 @@ from app.models.booking import Booking
 from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotCreate
+from app.utils.datetime_utils import is_within_business_hours
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,19 @@ logger = logging.getLogger(__name__)
 
 class SlotService:
     @staticmethod
-    def create_slot(*, session: Session, professor: User, data: SlotCreate) -> Slot:
+    def _to_read(*, session: Session, slot: Slot) -> dict:
+        professor = session.get(User, slot.professor_id)
+        return {
+            "id": slot.id,
+            "professor_id": slot.professor_id,
+            "university_id": slot.university_id,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+            "is_booked": slot.is_booked,
+            "professor": professor,
+        }
+    @staticmethod
+    def create_slot(*, session: Session, professor: User, data: SlotCreate) -> dict:
         if data.start_time.tzinfo is None:
             data.start_time = data.start_time.replace(tzinfo=timezone.utc)
         if data.end_time.tzinfo is None:
@@ -22,6 +35,9 @@ class SlotService:
 
         if data.start_time >= data.end_time:
             raise ConflictException("Start time must be before end time")
+
+        if not is_within_business_hours(data.start_time, data.end_time):
+            raise ConflictException("Slots must be within 08:30–17:30 UTC on the same day")
 
         now = datetime.now(timezone.utc)
         if data.start_time <= now:
@@ -51,7 +67,7 @@ class SlotService:
         session.commit()
         session.refresh(new_slot)
         logger.info("Slot created: id=%s professor_id=%s", new_slot.id, professor.id)
-        return new_slot
+        return SlotService._to_read(session=session, slot=new_slot)
 
     @staticmethod
     def get_all_slots(*, session: Session) -> list[Slot]:
@@ -68,7 +84,7 @@ class SlotService:
         available: bool | None = None,
         start_time_gte: datetime | None = None,
         end_time_lte: datetime | None = None,
-    ) -> list[Slot]:
+    ) -> list[dict]:
         query = select(Slot)
         if university_id is not None:
             query = query.where(Slot.university_id == university_id)
@@ -85,15 +101,16 @@ class SlotService:
             query = query.where(Slot.end_time <= end_time_lte)
         results = session.exec(query.offset(offset).limit(limit)).all()
         logger.info("list_slots: returned=%s", len(results))
-        return results
+        return [SlotService._to_read(session=session, slot=s) for s in results]
 
     @staticmethod
-    def get_professor_slots(*, session: Session, professor: User) -> list[Slot]:
-        return session.exec(
+    def get_professor_slots(*, session: Session, professor: User) -> list[dict]:
+        rows = session.exec(
             select(Slot).where(
                 Slot.professor_id == professor.id, Slot.university_id == professor.university_id
             )
         ).all()
+        return [SlotService._to_read(session=session, slot=s) for s in rows]
 
     @staticmethod
     def delete_slot(*, session: Session, professor: User, slot_id: int) -> None:

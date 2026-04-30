@@ -28,6 +28,10 @@ class SlotRead(BaseModel):
     start_time: datetime
     end_time: datetime
     is_booked: bool
+    professor: "UserMini | None" = None
 
     class Config:
         from_attributes = True
+
+
+from app.schemas.user import UserMini  # noqa: E402

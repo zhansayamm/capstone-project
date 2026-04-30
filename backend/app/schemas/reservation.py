@@ -31,6 +31,10 @@ class ReservationRead(BaseModel):
     start_time: datetime
     end_time: datetime
     created_at: datetime
+    user: "UserMini | None" = None
 
     class Config:
         from_attributes = True
+
+
+from app.schemas.user import UserMini  # noqa: E402

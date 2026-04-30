@@ -16,7 +16,6 @@ from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotRead
 from app.services.calendar_service import CalendarService
-from app.services.slot_service import SlotService
 
 calendar_router = APIRouter()
 
@@ -51,19 +50,34 @@ def professor_week_schedule(
     current_user: User = Depends(require_professor),
     session: Session = Depends(get_session),
 ):
-    slots = SlotService.get_professor_slots(session=session, professor=current_user)
+    slots = session.exec(
+        select(Slot).where(
+            Slot.professor_id == current_user.id,
+            Slot.university_id == current_user.university_id,
+        )
+    ).all()
     week = _empty_week()
     for slot in sorted(slots, key=lambda s: s.start_time):
-        week[_weekday_bucket(slot.start_time)].append(SlotRead.model_validate(slot).model_dump())
+        professor = session.get(User, slot.professor_id)
+        week[_weekday_bucket(slot.start_time)].append(
+            {
+                **SlotRead.model_validate(slot).model_dump(),
+                "professor": professor,
+            }
+        )
     return week
 
 
-def _booking_with_slot_dict(booking: Booking, slot: Slot) -> dict:
+def _booking_with_slot_dict(*, session: Session, booking: Booking, slot: Slot) -> dict:
+    professor = session.get(User, slot.professor_id)
     return {
         "id": booking.id,
         "status": booking.status,
         "created_at": booking.created_at,
-        "slot": SlotRead.model_validate(slot).model_dump(),
+        "slot": {
+            **SlotRead.model_validate(slot).model_dump(),
+            "professor": professor,
+        },
     }
 
 
@@ -84,7 +98,7 @@ def student_schedule(
         )
     ).all()
     for booking, slot in rows:
-        payload = _booking_with_slot_dict(booking, slot)
+        payload = _booking_with_slot_dict(session=session, booking=booking, slot=slot)
         if booking.status == BookingStatus.booked:
             booked.append(payload)
         elif booking.status == BookingStatus.queued:

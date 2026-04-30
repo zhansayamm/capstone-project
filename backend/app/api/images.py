@@ -6,6 +6,7 @@ from app.core.deps import get_current_user
 from app.db import get_session
 from app.models.image import Image
 from app.core.exceptions import NotFoundException
+from app.core.celery_app import celery_app
 from app.tasks.image_tasks import compress_image_task
 
 
@@ -29,8 +30,26 @@ async def upload_image(
         raise HTTPException(status_code=413, detail="File too large (max 5MB)")
 
     filename = file.filename or "upload"
-    compress_image_task.delay(image_bytes, filename)
-    return {"message": "Image is being processed"}
+    task = compress_image_task.delay(image_bytes, filename)
+    return {"message": "Image is being processed", "task_id": task.id}
+
+
+@router.get("/tasks/{task_id}")
+def get_image_task(task_id: str):
+    result = celery_app.AsyncResult(task_id)
+    if result.state == "PENDING":
+        return {"status": "PENDING"}
+    if result.state == "STARTED":
+        return {"status": "STARTED"}
+    if result.state == "FAILURE":
+        return {"status": "FAILURE"}
+    if result.state == "SUCCESS":
+        # Some Celery setups can report SUCCESS without persisting the return value.
+        # In that case, keep the client polling rather than returning a null image_id.
+        if result.result is None:
+            return {"status": "STARTED"}
+        return {"status": "SUCCESS", "image_id": int(result.result)}
+    return {"status": result.state}
 
 
 @router.get("/{image_id}")

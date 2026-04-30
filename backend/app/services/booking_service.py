@@ -20,7 +20,6 @@ class BookingService:
 
     @staticmethod
     def _queue_position(*, session: Session, booking: Booking) -> int:
-        # Position among queued bookings for same slot ordered by created_at (1-based).
         position = session.exec(
             select(func.count())
             .select_from(Booking)
@@ -37,6 +36,8 @@ class BookingService:
         queue_position = None
         if booking.status == BookingStatus.queued:
             queue_position = BookingService._queue_position(session=session, booking=booking)
+        professor = session.get(User, slot.professor_id)
+        student = session.get(User, booking.student_id)
         return {
             "id": booking.id,
             "student_id": booking.student_id,
@@ -49,8 +50,10 @@ class BookingService:
                 "university_id": slot.university_id,
                 "start_time": slot.start_time,
                 "end_time": slot.end_time,
+                "professor": professor,
             },
             "queue_position": queue_position,
+            "student": student,
         }
 
     @staticmethod
@@ -76,7 +79,6 @@ class BookingService:
         if existing_booking:
             raise ConflictException("You already booked or queued this slot")
 
-        # Prevent student from booking overlapping slots (conflict), regardless of status.
         student_bookings = session.exec(
             select(Booking).join(Slot).where(
                 Booking.student_id == student.id, Booking.university_id == student.university_id

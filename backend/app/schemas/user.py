@@ -7,6 +7,8 @@ class UserCreate(BaseModel):
     password: str
     role: UserRole
     university_id: int
+    first_name: str | None = None
+    last_name: str | None = None
 
     @field_validator("password")
     @classmethod
@@ -23,6 +25,19 @@ class UserRead(BaseModel):
     email: EmailStr
     role: UserRole
     university_id: int | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    avatar_image_id: int | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserMini(BaseModel):
+    id: int
+    email: EmailStr
+    first_name: str | None = None
+    last_name: str | None = None
 
     class Config:
         from_attributes = True

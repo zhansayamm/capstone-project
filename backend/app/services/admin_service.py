@@ -50,7 +50,17 @@ class AdminService:
             professor_count[slot.professor_id] = professor_count.get(slot.professor_id, 0) + 1
 
         sorted_professors = sorted(professor_count.items(), key=lambda x: x[1], reverse=True)
-        return [{"professor_id": pid, "slots_created": count} for pid, count in sorted_professors]
+        results: list[dict] = []
+        for pid, count in sorted_professors:
+            prof = session.get(User, pid)
+            results.append(
+                {
+                    "professor_id": pid,
+                    "professor_name": f"{(prof.first_name or '').strip()} {(prof.last_name or '').strip()}".strip() if prof else None,
+                    "slots_created": count,
+                }
+            )
+        return results
 
     @staticmethod
     def get_top_classrooms(*, session: Session, admin: User) -> list[dict]:
@@ -62,6 +72,14 @@ class AdminService:
             classroom_count[r.classroom_id] = classroom_count.get(r.classroom_id, 0) + 1
 
         sorted_classrooms = sorted(classroom_count.items(), key=lambda x: x[1], reverse=True)
-        return [
-            {"classroom_id": cid, "reservations": count} for cid, count in sorted_classrooms
-        ]
+        results: list[dict] = []
+        for cid, count in sorted_classrooms:
+            classroom = session.get(Classroom, cid)
+            results.append(
+                {
+                    "classroom_id": cid,
+                    "classroom_name": classroom.name if classroom else None,
+                    "reservations": count,
+                }
+            )
+        return results

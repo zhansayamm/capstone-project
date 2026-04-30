@@ -9,6 +9,9 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     password_hash: str
     role: UserRole
+    first_name: Optional[str] = Field(default=None, max_length=100)
+    last_name: Optional[str] = Field(default=None, max_length=100)
+    avatar_image_id: Optional[int] = Field(default=None, foreign_key="images.id")
 
     university_id: Optional[int] = Field(default=None, foreign_key="universities.id")
     slots: List["Slot"] = Relationship(back_populates="professor")

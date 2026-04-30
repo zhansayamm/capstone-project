@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import logging
 from sqlalchemy import or_
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from app.core.exceptions import ForbiddenException, NotFoundException
@@ -149,6 +150,17 @@ class NotificationService:
         session.commit()
         session.refresh(notification)
         return notification
+
+    @staticmethod
+    def mark_all_as_read(session: Session, user: User) -> int:
+        result = session.exec(
+            update(Notification)
+            .where(Notification.user_id == user.id, Notification.is_read == False)  # noqa: E712
+            .values(is_read=True)
+        )
+        session.commit()
+        # SQLAlchemy returns rowcount on the underlying result
+        return int(getattr(result, "rowcount", 0) or 0)
 
     @staticmethod
     def send_booking_confirmed(session: Session, user: User, slot: Slot) -> Notification:

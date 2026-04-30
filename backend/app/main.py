@@ -14,7 +14,7 @@ from app.db import engine
 
 from app.models import *
 
-from app.api import auth, slots, bookings, classrooms, reservations, admin, universities, calendar, notifications, images
+from app.api import auth, slots, bookings, classrooms, reservations, admin, universities, calendar, notifications, images, users
 from app.core.exceptions import AppException
 from app.core.limiter import limiter
 
@@ -177,6 +177,7 @@ app.include_router(
 )
 
 app.include_router(images.router, prefix="/images", tags=["Images"])
+app.include_router(users.router, prefix="/users", tags=["Users"])
 
 @app.get("/")
 def root():

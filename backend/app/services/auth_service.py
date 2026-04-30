@@ -21,7 +21,6 @@ class AuthService:
     def request_password_reset(*, session: Session, email: str) -> dict:
         user = session.exec(select(User).where(User.email == email)).first()
 
-        # Security: do not reveal whether the email exists.
         if user:
             now = datetime.now(timezone.utc)
             exp = int((now + timedelta(minutes=15)).timestamp())
@@ -96,6 +95,8 @@ class AuthService:
             password_hash=hash_password(data.password),
             role=data.role,
             university_id=data.university_id,
+            first_name=getattr(data, "first_name", None),
+            last_name=getattr(data, "last_name", None),
         )
 
         session.add(user)

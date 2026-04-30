@@ -36,3 +36,12 @@ def mark_notification_read(
 ):
     n = NotificationService.mark_as_read(session, current_user, notification_id)
     return NotificationRead.model_validate(n)
+
+
+@notification_router.patch("/me/read-all")
+def mark_all_read(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    updated = NotificationService.mark_all_as_read(session, current_user)
+    return {"updated": updated}
