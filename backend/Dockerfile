@@ -1,4 +1,5 @@
-FROM python:3.14-slim
+# Match Railway / typical Linux deploy (Python 3.11); avoids drift vs local 3.14 venv.
+FROM python:3.11-slim
 
 WORKDIR /app
 

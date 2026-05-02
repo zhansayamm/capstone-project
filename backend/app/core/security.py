@@ -3,16 +3,12 @@ import logging
 
 import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
+# Native bcrypt only — passlib is removed to avoid bcrypt backend init (detect_wrap_bug) and 72-byte crashes.
 
 
 def normalize_password(password: str) -> str:
@@ -20,45 +16,45 @@ def normalize_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
+def _bcrypt_secret_candidates(password: str) -> list[bytes]:
+    """Byte preimages to try against stored bcrypt hashes (current + legacy deployments)."""
+    seen: set[bytes] = set()
+    out: list[bytes] = []
+
+    def add(b: bytes) -> None:
+        if b not in seen:
+            seen.add(b)
+            out.append(b)
+
+    # Current: sha256(password) as 64 ASCII bytes
+    add(normalize_password(password).encode("ascii"))
+    # Legacy: UTF-8 password truncated to 72 bytes (bcrypt / passlib default behavior)
+    add(password.encode("utf-8")[:72])
+    # Legacy: first 72 Unicode chars, then UTF-8 truncated to 72 bytes
+    add(password[:72].encode("utf-8")[:72])
+    # Legacy: UTF-8 truncate → decode → re-encode (older app helper)
+    truncated = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    add(truncated.encode("utf-8")[:72])
+    return out
+
+
 def hash_password(password: str) -> str:
-    """New hashes: bcrypt(sha256(password)) via native bcrypt (stable across bcrypt/passlib versions)."""
     digest = normalize_password(password).encode("ascii")
-    logger.debug("hash_password: normalized_len=%s", len(digest))
+    logger.debug("hash_password: digest_byte_len=%s", len(digest))
     return bcrypt.hashpw(digest, bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def verify_password(password: str, hash: str) -> bool:  # noqa: A002
-    """Try current scheme first, then legacy schemes used in earlier deployments."""
     if not hash:
         return False
     stored = hash.encode("ascii")
-
-    # 1) Current: bcrypt(sha256(password)) — native bcrypt; compatible with passlib-produced $2b$ of same digest
-    try:
-        if bcrypt.checkpw(normalize_password(password).encode("ascii"), stored):
-            return True
-    except (ValueError, TypeError):
-        pass
-
-    # 2) Legacy: passlib bcrypt of full plaintext (old default before SHA256 pre-hash)
-    for candidate in (
-        password,
-        password[:72],  # legacy char truncation used in some versions
-        password.encode("utf-8")[:72].decode("utf-8", errors="ignore"),  # legacy UTF-8 byte truncation
-    ):
+    for secret in _bcrypt_secret_candidates(password):
         try:
-            if pwd_context.verify(candidate, hash):
+            if bcrypt.checkpw(secret, stored):
                 return True
-        except (ValueError, TypeError, Exception):
+        except ValueError:
+            # Wrong hash format or bcrypt internal rejection — try next candidate
             continue
-
-    # 3) Legacy: native bcrypt of UTF-8 password truncated to 72 bytes (no passlib)
-    try:
-        if bcrypt.checkpw(password.encode("utf-8")[:72], stored):
-            return True
-    except (ValueError, TypeError):
-        pass
-
     return False
 
 
