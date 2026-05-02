@@ -22,8 +22,6 @@ This project is a **University Booking System** that allows:
 
 ### Application screenshots *(optional)*
 
-Add images under [`docs/screenshots/`](docs/screenshots/) and embed them below for GitHub/GitLab previews.
-
 | Area | Preview *(after you add files)* |
 |------|-----------------------------------|
 | Student dashboard / slots | ![Student UI](docs/screenshots/student-dashboard.png) |
@@ -31,7 +29,6 @@ Add images under [`docs/screenshots/`](docs/screenshots/) and embed them below f
 | Admin analytics | ![Admin UI](docs/screenshots/admin-analytics.png) |
 | Calendar week view | ![Calendar](docs/screenshots/calendar-week.png) |
 
-*If images are missing, those lines show a broken thumbnail until files exist; remove unused rows or replace paths with your real filenames.*
 
 ---
 
