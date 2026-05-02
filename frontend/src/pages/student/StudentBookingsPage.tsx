@@ -1,8 +1,8 @@
-import { Button, Card, Flex, Input, Space, Table, Tag, Tooltip, Typography } from "antd";
+import { Button, Card, Flex, Input, List, Modal, Space, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 
-import { cancelBooking, listMyBookings } from "../../features/bookings/api/bookingApi";
+import { cancelBooking, listBookingMessages, listMyBookings, postBookingMessage } from "../../features/bookings/api/bookingApi";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { formatRange } from "../../shared/utils/dateDisplay";
 import { dayjs } from "../../shared/utils/dayjs";
@@ -13,7 +13,11 @@ import type { Booking } from "../../shared/types/domain";
 export function StudentBookingsPage() {
   const bookings = useAsync(listMyBookings);
   const cancel = useAsync(cancelBooking);
+  const messages = useAsync(listBookingMessages);
+  const postMessage = useAsync(postBookingMessage);
   const [q, setQ] = useState("");
+  const [chatBooking, setChatBooking] = useState<Booking | null>(null);
+  const [chatText, setChatText] = useState("");
 
   useEffect(() => {
     bookings.run({ limit: 50, upcoming: false });
@@ -78,28 +82,45 @@ export function StudentBookingsPage() {
     {
       title: "Status",
       dataIndex: "status",
-      render: (s, row) =>
-        s === "booked" ? (
-          <Tag color="green">Booked</Tag>
+      render: (s) =>
+        s === "approved" || s === "booked" ? (
+          <Tag color="green">Approved</Tag>
+        ) : s === "pending" || s === "queued" ? (
+          <Tag color="gold">Pending</Tag>
+        ) : s === "rejected" ? (
+          <Tag color="red">Rejected</Tag>
+        ) : s === "cancelled" ? (
+          <Tag>Cancelled</Tag>
         ) : (
-          <Tag color="blue">Queued{row.queue_position ? ` (#${row.queue_position})` : ""}</Tag>
+          <Tag>{String(s)}</Tag>
         ),
     },
     {
       title: "",
       key: "actions",
-      width: 170,
+      width: 240,
       render: (_, row) => (
-        <Button
-          danger
-          disabled={cancel.state.loading || dayjs(row.slot.start_time).isBefore(dayjs())}
-          onClick={async () => {
-            await cancel.run(row.id);
-            await bookings.run({ limit: 50, upcoming: false });
-          }}
-        >
-          Cancel
-        </Button>
+        <Space>
+          <Button
+            onClick={async () => {
+              setChatBooking(row);
+              setChatText("");
+              await messages.run(row.id, { limit: 100, offset: 0 });
+            }}
+          >
+            Chat
+          </Button>
+          <Button
+            danger
+            disabled={cancel.state.loading || dayjs(row.slot.start_time).isBefore(dayjs())}
+            onClick={async () => {
+              await cancel.run(row.id);
+              await bookings.run({ limit: 50, upcoming: false });
+            }}
+          >
+            Cancel
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -110,22 +131,34 @@ export function StudentBookingsPage() {
         <Typography.Title level={2} style={{ margin: 0 }}>
           My bookings
         </Typography.Title>
-        <Space>
-          <Button loading={bookings.state.loading} onClick={() => bookings.run({ limit: 50, upcoming: false })}>
-            Refresh
-          </Button>
-        </Space>
       </Flex>
       <Card>
-        <Flex align="center" justify="space-between" wrap gap={12} style={{ marginBottom: 12 }}>
-          <Input.Search
-            placeholder="Search professor"
-            allowClear
-            style={{ width: 280 }}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </Flex>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, flex: 1 }}>
+            <Input.Search
+              placeholder="Search..."
+              allowClear
+              style={{ minWidth: 200, maxWidth: 260 }}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button onClick={() => setQ("")}>Clear</Button>
+            <Button type="primary" loading={bookings.state.loading} onClick={() => bookings.run({ limit: 50, upcoming: false })}>
+              Refresh
+            </Button>
+          </div>
+        </div>
         <Table
           rowKey="id"
           columns={columns}
@@ -135,6 +168,66 @@ export function StudentBookingsPage() {
           locale={{ emptyText: "No bookings yet. Book a slot to see it here." }}
         />
       </Card>
+
+      <Modal
+        title={chatBooking ? `Booking chat · ${chatBooking.slot.title}` : "Booking chat"}
+        open={!!chatBooking}
+        onCancel={() => {
+          setChatBooking(null);
+          setChatText("");
+        }}
+        footer={null}
+        width={640}
+      >
+        <List
+          size="small"
+          loading={messages.state.loading}
+          dataSource={messages.state.value ?? []}
+          locale={{ emptyText: "No messages yet." }}
+          renderItem={(m) => (
+            <List.Item>
+              <List.Item.Meta
+                title={
+                  <Space size={8} wrap>
+                    <Typography.Text strong>{formatUserName(m.sender, { id: m.sender_id })}</Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {dayjs(m.created_at).format("MMM D, HH:mm")}
+                    </Typography.Text>
+                  </Space>
+                }
+                description={<Typography.Text>{m.message}</Typography.Text>}
+              />
+            </List.Item>
+          )}
+          style={{ maxHeight: 360, overflow: "auto", border: "1px solid rgba(5,5,5,0.06)", borderRadius: 8, padding: 8 }}
+        />
+
+        <div style={{ marginTop: 12 }}>
+          <Input.TextArea
+            value={chatText}
+            onChange={(e) => setChatText(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="Write a message…"
+          />
+          <Flex justify="flex-end" style={{ marginTop: 8 }}>
+            <Button
+              type="primary"
+              loading={postMessage.state.loading}
+              disabled={!chatBooking || !chatText.trim()}
+              onClick={async () => {
+                if (!chatBooking) return;
+                const text = chatText.trim();
+                setChatText("");
+                await postMessage.run(chatBooking.id, text);
+                await messages.run(chatBooking.id, { limit: 100, offset: 0 });
+              }}
+            >
+              Send
+            </Button>
+          </Flex>
+        </div>
+      </Modal>
     </Page>
   );
 }

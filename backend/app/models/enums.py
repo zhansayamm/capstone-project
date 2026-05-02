@@ -7,5 +7,12 @@ class UserRole(str, Enum):
 
 
 class BookingStatus(str, Enum):
+    # New workflow states
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+    # Backward compatibility (existing DB rows / older clients)
     booked = "booked"
     queued = "queued"

@@ -93,7 +93,19 @@ export function AdminReservationsPage() {
         <Typography.Title level={2} style={{ margin: 0 }}>
           Reservations
         </Typography.Title>
-        <Space>
+      </Flex>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, flex: 1 }}>
           <Space>
             <Typography.Text type="secondary">Upcoming</Typography.Text>
             <Switch checked={upcoming} onChange={setUpcoming} />
@@ -102,7 +114,7 @@ export function AdminReservationsPage() {
             allowClear
             showSearch
             placeholder="Classroom"
-            style={{ minWidth: 220 }}
+            style={{ minWidth: 180, maxWidth: 280 }}
             value={classroomId ?? undefined}
             options={classroomOptions}
             optionFilterProp="label"
@@ -112,20 +124,27 @@ export function AdminReservationsPage() {
             allowClear
             showSearch
             placeholder="User"
-            style={{ minWidth: 220 }}
+            style={{ minWidth: 180, maxWidth: 280 }}
             value={userId ?? undefined}
             options={userOptions}
             optionFilterProp="label"
             onChange={(v) => setUserId(typeof v === "number" ? v : null)}
           />
           <Input.Search
-            placeholder="Search user/classroom"
+            placeholder="Search..."
             allowClear
-            style={{ width: 240 }}
+            style={{ minWidth: 200, maxWidth: 260 }}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button onClick={() => { setClassroomId(null); setUserId(null); setQ(""); }}>
+            Clear
+          </Button>
           <Button
+            type="primary"
             loading={reservations.state.loading}
             onClick={() =>
               reservations.run({
@@ -138,8 +157,8 @@ export function AdminReservationsPage() {
           >
             Refresh
           </Button>
-        </Space>
-      </Flex>
+        </div>
+      </div>
       <Card>
         <Table
           rowKey="id"

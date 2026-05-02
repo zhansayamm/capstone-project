@@ -1,10 +1,9 @@
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from sqlmodel import Session, select
-from datetime import datetime
-from sqlalchemy import func
 import logging
 
 from app.models.booking import Booking
+from app.models.booking_participant import BookingParticipant
 from app.models.enums import BookingStatus
 from app.models.slot import Slot
 from app.models.user import User
@@ -16,34 +15,46 @@ logger = logging.getLogger(__name__)
 
 
 class BookingService:
-    MAX_QUEUE_SIZE = 5
+    @staticmethod
+    def _normalize_status(status: BookingStatus) -> BookingStatus:
+        # Backward compatibility: map old values into new workflow
+        if status == BookingStatus.booked:
+            return BookingStatus.approved
+        if status == BookingStatus.queued:
+            return BookingStatus.pending
+        return status
 
     @staticmethod
-    def _queue_position(*, session: Session, booking: Booking) -> int:
-        position = session.exec(
-            select(func.count())
-            .select_from(Booking)
-            .where(
-                Booking.slot_id == booking.slot_id,
-                Booking.status == BookingStatus.queued,
-                Booking.created_at <= booking.created_at,
-            )
-        ).one()
-        return int(position)
+    def _is_active(status: BookingStatus) -> bool:
+        s = BookingService._normalize_status(status)
+        return s in (BookingStatus.pending, BookingStatus.approved)
+
+    @staticmethod
+    def _is_approved(status: BookingStatus) -> bool:
+        return BookingService._normalize_status(status) == BookingStatus.approved
+
+    @staticmethod
+    def _approved_count(*, session: Session, slot_id: int) -> int:
+        rows = session.exec(select(Booking).where(Booking.slot_id == slot_id)).all()
+        return sum(1 for b in rows if BookingService._is_approved(b.status))
 
     @staticmethod
     def _to_read(*, session: Session, booking: Booking, slot: Slot) -> dict:
-        queue_position = None
-        if booking.status == BookingStatus.queued:
-            queue_position = BookingService._queue_position(session=session, booking=booking)
+        normalized_status = BookingService._normalize_status(booking.status)
         professor = session.get(User, slot.professor_id)
         student = session.get(User, booking.student_id)
+
+        participants_rows = session.exec(
+            select(BookingParticipant).where(BookingParticipant.booking_id == booking.id)
+        ).all()
+        participant_users = [session.get(User, p.student_id) for p in participants_rows]
+        participant_users = [u for u in participant_users if u is not None]
         return {
             "id": booking.id,
             "student_id": booking.student_id,
             "slot_id": booking.slot_id,
             "university_id": booking.university_id,
-            "status": booking.status,
+            "status": normalized_status,
             "created_at": to_local(booking.created_at),
             "description": booking.description,
             "slot": {
@@ -55,12 +66,21 @@ class BookingService:
                 "description": slot.description,
                 "professor": professor,
             },
-            "queue_position": queue_position,
+            "participants_count": max(1, len(participant_users) or 1),
+            "participants": participant_users if participant_users else None,
+            "queue_position": None,
             "student": student,
         }
 
     @staticmethod
-    def create_booking(*, session: Session, student: User, slot_id: int, description: str | None = None) -> dict:
+    def create_booking(
+        *,
+        session: Session,
+        student: User,
+        slot_id: int,
+        description: str | None = None,
+        participants: list[int] | None = None,
+    ) -> dict:
         slot = session.get(Slot, slot_id)
         if not slot:
             raise NotFoundException("Slot not found")
@@ -79,8 +99,8 @@ class BookingService:
                 Booking.university_id == student.university_id,
             )
         ).first()
-        if existing_booking:
-            raise ConflictException("You already booked or queued this slot")
+        if existing_booking and BookingService._is_active(existing_booking.status):
+            raise ConflictException("You already have an active booking request for this slot")
 
         student_bookings = session.exec(
             select(Booking).join(Slot).where(
@@ -88,6 +108,8 @@ class BookingService:
             )
         ).all()
         for b in student_bookings:
+            if not BookingService._is_active(b.status):
+                continue
             other_slot = b.slot
             if not other_slot:
                 continue
@@ -99,26 +121,36 @@ class BookingService:
             if not (slot_end <= other_start or slot_start >= other_end):
                 raise ConflictException("Booking time conflicts with another slot")
 
-        if not slot.is_booked:
-            slot.is_booked = True
-            status_value = BookingStatus.booked
-        else:
-            queued_count = session.exec(
-                select(Booking).where(
-                    Booking.slot_id == slot_id,
-                    Booking.status == BookingStatus.queued,
-                    Booking.university_id == student.university_id,
-                )
-            ).all()
-            if len(queued_count) >= BookingService.MAX_QUEUE_SIZE:
-                raise ConflictException("Queue is full for this slot")
-            status_value = BookingStatus.queued
+        # New workflow: approval required, capacity enforced on approval
+        status_value = BookingStatus.pending
 
         booking = Booking(student_id=student.id, slot_id=slot_id, status=status_value, description=description)
         booking.university_id = student.university_id
         session.add(booking)
         session.commit()
         session.refresh(booking)
+
+        # Persist participants (creator + optional additional students)
+        participant_ids: set[int] = {student.id}
+        if participants:
+            for pid in participants:
+                try:
+                    pid_int = int(pid)
+                except Exception:
+                    raise ConflictException("Invalid participant id")
+                if pid_int != student.id:
+                    participant_ids.add(pid_int)
+
+        for pid in participant_ids:
+            u = session.get(User, pid)
+            if not u:
+                raise NotFoundException(f"Participant user_id={pid} not found")
+            if u.university_id != student.university_id:
+                raise ForbiddenException("Participants must be from the same university")
+            if u.role != "student":
+                raise ConflictException("Participants must be students")
+            session.add(BookingParticipant(booking_id=booking.id, student_id=u.id))
+        session.commit()
         logger.info(
             "Booking created: id=%s slot_id=%s student_id=%s status=%s",
             booking.id,
@@ -126,21 +158,91 @@ class BookingService:
             booking.student_id,
             booking.status,
         )
-        if booking.status == BookingStatus.booked:
-            NotificationService.booking_confirmed(student, slot)
-            NotificationService.schedule_booking_reminder(student, slot)
+        NotificationService.create_notification(
+            session,
+            student,
+            f"Booking request submitted for {slot.title} at {slot.start_time}",
+            subject="Booking Pending",
+        )
+        return BookingService._to_read(session=session, booking=booking, slot=slot)
+
+    @staticmethod
+    def approve_booking(*, session: Session, professor: User, booking_id: int) -> dict:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise NotFoundException("Booking not found")
+        slot = session.get(Slot, booking.slot_id)
+        if not slot:
+            raise NotFoundException("Slot not found")
+        if slot.university_id != professor.university_id or slot.professor_id != professor.id:
+            raise ForbiddenException("You can only approve bookings for your own slots")
+
+        if BookingService._normalize_status(booking.status) != BookingStatus.pending:
+            raise ConflictException("Only pending bookings can be approved")
+
+        if ensure_utc(slot.start_time) <= utc_now():
+            raise ConflictException("Cannot approve bookings for past slots")
+
+        capacity = int(getattr(slot, "capacity", 1) or 1)
+        approved_count = BookingService._approved_count(session=session, slot_id=slot.id)
+        if approved_count >= capacity:
+            raise ConflictException("Slot capacity reached")
+
+        booking.status = BookingStatus.approved
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+
+        # Keep Slot.is_booked maintained for existing list filters/UI
+        approved_after = BookingService._approved_count(session=session, slot_id=slot.id)
+        slot.is_booked = approved_after >= capacity
+        session.add(slot)
+        session.commit()
+
+        participants = session.exec(
+            select(BookingParticipant).where(BookingParticipant.booking_id == booking.id)
+        ).all()
+        for p in participants:
+            u = session.get(User, p.student_id)
+            if not u:
+                continue
+            NotificationService.booking_confirmed(u, slot)
+            NotificationService.schedule_booking_reminder(u, slot)
             NotificationService.create_notification(
                 session,
-                student,
-                f"You booked a slot at {slot.start_time}",
-                subject="Booking Confirmed",
+                u,
+                f"Booking approved for {slot.title} at {slot.start_time}",
+                subject="Booking Approved",
             )
-        elif booking.status == BookingStatus.queued:
+
+        return BookingService._to_read(session=session, booking=booking, slot=slot)
+
+    @staticmethod
+    def reject_booking(*, session: Session, professor: User, booking_id: int) -> dict:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise NotFoundException("Booking not found")
+        slot = session.get(Slot, booking.slot_id)
+        if not slot:
+            raise NotFoundException("Slot not found")
+        if slot.university_id != professor.university_id or slot.professor_id != professor.id:
+            raise ForbiddenException("You can only reject bookings for your own slots")
+
+        if BookingService._normalize_status(booking.status) != BookingStatus.pending:
+            raise ConflictException("Only pending bookings can be rejected")
+
+        booking.status = BookingStatus.rejected
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+
+        owner = session.get(User, booking.student_id)
+        if owner:
             NotificationService.create_notification(
                 session,
-                student,
-                f"You are added to queue for slot at {slot.start_time}",
-                subject="Booking Queued",
+                owner,
+                f"Booking rejected for {slot.title} at {slot.start_time}",
+                subject="Booking Rejected",
             )
         return BookingService._to_read(session=session, booking=booking, slot=slot)
 
@@ -210,34 +312,17 @@ class BookingService:
         if slot and slot.university_id != student.university_id:
             raise ForbiddenException("You cannot access slots from another university")
 
-        if booking.status == BookingStatus.booked:
-            next_in_queue = session.exec(
-                select(Booking)
-                .where(
-                    Booking.slot_id == booking.slot_id,
-                    Booking.status == BookingStatus.queued,
-                    Booking.university_id == student.university_id,
-                )
-                .order_by(Booking.created_at)
-            ).first()
+        was_approved = BookingService._is_approved(booking.status)
+        booking.status = BookingStatus.cancelled
+        session.add(booking)
+        session.commit()
 
-            if next_in_queue:
-                next_in_queue.status = BookingStatus.booked
-                if slot:
-                    slot.is_booked = True
-                next_user = session.get(User, next_in_queue.student_id)
-                if next_user and slot:
-                    NotificationService.moved_from_queue(next_user, slot)
-                    NotificationService.schedule_booking_reminder(next_user, slot)
-                    NotificationService.create_notification(
-                        session,
-                        next_user,
-                        f"You were moved from queue to booked for {slot.start_time}",
-                        subject="You are now booked!",
-                    )
-            else:
-                if slot:
-                    slot.is_booked = False
+        if slot and was_approved:
+            capacity = int(getattr(slot, "capacity", 1) or 1)
+            approved_now = BookingService._approved_count(session=session, slot_id=slot.id)
+            slot.is_booked = approved_now >= capacity
+            session.add(slot)
+            session.commit()
 
         if slot:
             NotificationService.booking_cancelled(student, slot)
@@ -247,6 +332,3 @@ class BookingService:
                 f"Your booking at {slot.start_time} was cancelled",
                 subject="Booking Cancelled",
             )
-
-        session.delete(booking)
-        session.commit()

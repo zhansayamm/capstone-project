@@ -8,6 +8,7 @@ from app.schemas.user import UserMini
 class BookingCreate(BaseModel):
     slot_id: int
     description: Optional[str] = None
+    participants: Optional[list[int]] = None
 
     @classmethod
     def _clean_desc(cls, v: Optional[str]) -> Optional[str]:
@@ -47,6 +48,8 @@ class BookingRead(BaseModel):
     created_at: datetime
     description: Optional[str] = None
     slot: BookingSlotRead
+    participants_count: int = 1
+    participants: list[UserMini] | None = None
     queue_position: Optional[int] = None
     student: UserMini | None = None
 

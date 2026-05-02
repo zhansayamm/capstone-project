@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -28,6 +29,13 @@ export function setupDayjs() {
  */
 export function dayjsToAppTz(value: string | Date) {
   return dayjs.utc(value).tz(APP_TIMEZONE);
+}
+
+/** Monday-start week (consistent with backend `weekday()` Mon=0 … Sun=6). */
+export function mondayContaining(d: Dayjs): Dayjs {
+  const dow = d.day(); // Sun 0 … Sat 6
+  const delta = dow === 0 ? -6 : 1 - dow;
+  return d.add(delta, "day").startOf("day");
 }
 
 export { dayjs };

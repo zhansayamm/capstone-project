@@ -6,6 +6,7 @@ class SlotCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_minutes: int = 30
+    capacity: int = 1
     title: str
     description: str | None = None
     university_id: int | None = None
@@ -30,6 +31,15 @@ class SlotCreate(BaseModel):
             raise ValueError("duration_minutes must be one of: 15, 30, 60")
         return v
 
+    @field_validator("capacity")
+    @classmethod
+    def validate_capacity(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("capacity must be at least 1")
+        if v > 50:
+            raise ValueError("capacity must be at most 50")
+        return v
+
     @field_validator("title")
     @classmethod
     def validate_title(cls, v: str) -> str:
@@ -48,6 +58,7 @@ class SlotRead(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_minutes: int = 30
+    capacity: int = 1
     title: str
     description: str | None = None
     is_booked: bool

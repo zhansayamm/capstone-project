@@ -25,20 +25,28 @@ WORK_END = BUSINESS_END_LOCAL
 
 class SlotService:
     @staticmethod
+    def _is_approved_status(status: BookingStatus) -> bool:
+        # Backward compatibility: treat booked as approved
+        return status in (BookingStatus.approved, BookingStatus.booked)
+
+    @staticmethod
     def _to_read(*, session: Session, slot: Slot) -> dict:
         professor = session.get(User, slot.professor_id)
         booked_by = None
         booking_description = None
-        if slot.is_booked:
-            booking = session.exec(
-                select(Booking).where(
-                    Booking.slot_id == slot.id,
-                    Booking.status == BookingStatus.booked,
-                )
-            ).first()
-            if booking:
-                booked_by = session.get(User, booking.student_id)
-                booking_description = booking.description
+        approved_booking = session.exec(
+            select(Booking)
+            .where(Booking.slot_id == slot.id)
+            .order_by(Booking.created_at)
+        ).all()
+        approved = [b for b in approved_booking if SlotService._is_approved_status(b.status)]
+        is_fully_booked = len(approved) >= int(getattr(slot, "capacity", 1) or 1)
+
+        # Keep single booked_by for backwards UI (first approved booking)
+        if approved:
+            first = approved[0]
+            booked_by = session.get(User, first.student_id)
+            booking_description = first.description
         return {
             "id": slot.id,
             "professor_id": slot.professor_id,
@@ -46,9 +54,10 @@ class SlotService:
             "start_time": to_local(slot.start_time),
             "end_time": to_local(slot.end_time),
             "duration_minutes": slot.duration_minutes,
+            "capacity": getattr(slot, "capacity", 1),
             "title": slot.title,
             "description": slot.description,
-            "is_booked": slot.is_booked,
+            "is_booked": is_fully_booked,
             "professor": professor,
             "booked_by": booked_by,
             "booking_description": booking_description,
@@ -87,6 +96,9 @@ class SlotService:
 
         # Split requested range into mini-slots (each can be booked by one student)
         duration = int(getattr(data, "duration_minutes", 30) or 30)
+        capacity = int(getattr(data, "capacity", 1) or 1)
+        if capacity < 1:
+            raise ConflictException("capacity must be at least 1")
         title = (getattr(data, "title", None) or "General").strip()
         description = getattr(data, "description", None)
         if description is not None:
@@ -131,6 +143,7 @@ class SlotService:
                     start_time=current,
                     end_time=nxt,
                     duration_minutes=duration,
+                    capacity=capacity,
                     title=title,
                     description=description,
                     is_booked=False,

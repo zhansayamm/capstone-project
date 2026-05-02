@@ -5,7 +5,6 @@ import type { Dayjs } from "dayjs";
 import { createBooking } from "../../features/bookings/api/bookingApi";
 import { listSlots } from "../../features/slots/api/slotApi";
 import { useAsync } from "../../shared/hooks/useAsync";
-import { formatDateTime } from "../../shared/utils/dateDisplay";
 import { disabledTimeForBusinessHours } from "../../shared/utils/businessHours";
 import { dayjs } from "../../shared/utils/dayjs";
 import { formatUserName } from "../../shared/utils/userDisplay";
@@ -29,7 +28,6 @@ export function StudentSlotsPage() {
   const [availableOnly, setAvailableOnly] = useState(true);
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [professorId, setProfessorId] = useState<number | null>(null);
-  const [queueBySlotId, setQueueBySlotId] = useState<Record<number, number>>({});
   const [bookingSlotId, setBookingSlotId] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [bookingNote, setBookingNote] = useState("");
@@ -105,14 +103,9 @@ export function StudentSlotsPage() {
     setBookingSlotId(slot.id);
     try {
       const booking = await book.run({ slot_id: slot.id, description: bookingNote });
-      if (booking.status === "queued" && booking.queue_position) {
-        setQueueBySlotId((m) => ({ ...m, [slot.id]: booking.queue_position ?? 0 }));
-        message.info(`Joined queue (position #${booking.queue_position})`);
-      } else if (booking.status === "queued") {
-        message.info("Joined queue");
-      } else {
-        message.success("Booked successfully");
-      }
+      if (booking.status === "approved" || booking.status === "booked") message.success("Booking approved");
+      else if (booking.status === "rejected") message.error("Booking rejected");
+      else message.info("Booking request submitted (pending approval)");
       await slotsQuery.run({ limit: 50, available: availableOnly });
     } finally {
       setBookingSlotId(null);
@@ -127,11 +120,23 @@ export function StudentSlotsPage() {
         <Typography.Title level={2} style={{ margin: 0 }}>
           Available slots
         </Typography.Title>
-        <Space>
+      </Flex>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, flex: 1 }}>
           <Select
             allowClear
-            placeholder="Filter professor"
-            style={{ minWidth: 180 }}
+            placeholder="Professor"
+            style={{ minWidth: 180, maxWidth: 260 }}
             options={professorOptions}
             value={professorId ?? undefined}
             onChange={(v) => setProfessorId(v ?? null)}
@@ -139,6 +144,7 @@ export function StudentSlotsPage() {
           <DatePicker.RangePicker
             showTime
             allowEmpty={[true, true]}
+            style={{ minWidth: 260, maxWidth: 420 }}
             value={range as [Dayjs | null, Dayjs | null] | null}
             onChange={(v) => setRange((v as [Dayjs | null, Dayjs | null] | null) ?? null)}
             disabledTime={disabledTimeForBusinessHours}
@@ -147,14 +153,17 @@ export function StudentSlotsPage() {
               return current.endOf("day").isBefore(dayjs().startOf("day"));
             }}
           />
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
           <Button onClick={() => setAvailableOnly((v) => !v)}>
             {availableOnly ? "Show all" : "Available only"}
           </Button>
-          <Button loading={slotsQuery.state.loading} onClick={() => slotsQuery.run({ limit: 50, available: availableOnly })}>
+          <Button type="primary" loading={slotsQuery.state.loading} onClick={() => slotsQuery.run({ limit: 50, available: availableOnly })}>
             Refresh
           </Button>
-        </Space>
-      </Flex>
+        </div>
+      </div>
 
       <Space direction="vertical" size={12} style={{ width: "100%" }}>
         {groupedSlots.length === 0 ? (
@@ -196,7 +205,6 @@ export function StudentSlotsPage() {
                   const isPast = dayjs(s.end_time).isBefore(dayjs());
                   const disabled = isPast || s.is_booked || book.state.loading;
                   const isSelected = selectedSlot?.id === s.id;
-                  const showQueue = queueBySlotId[s.id];
                   const timeLabel = dayjs(s.start_time).format("HH:mm");
                   return (
                     <Button
@@ -210,7 +218,6 @@ export function StudentSlotsPage() {
                       style={{ borderRadius: 999 }}
                     >
                       {timeLabel}
-                      {showQueue ? ` · Q#${showQueue}` : ""}
                     </Button>
                   );
                 })}

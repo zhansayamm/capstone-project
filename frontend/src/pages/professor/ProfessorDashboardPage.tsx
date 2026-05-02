@@ -18,8 +18,8 @@ export function ProfessorDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const queuedCount = useMemo(
-    () => (bookings.state.value ?? []).filter((b) => b.status === "queued").length,
+  const pendingCount = useMemo(
+    () => (bookings.state.value ?? []).filter((b) => b.status === "pending" || b.status === "queued").length,
     [bookings.state.value],
   );
 
@@ -49,7 +49,7 @@ export function ProfessorDashboardPage() {
         </Col>
         <Col xs={24} md={8}>
           <Card>
-            <Statistic title="Students queued" value={bookings.state.value ? queuedCount : "—"} />
+            <Statistic title="Pending approvals" value={bookings.state.value ? pendingCount : "—"} />
           </Card>
         </Col>
       </Row>

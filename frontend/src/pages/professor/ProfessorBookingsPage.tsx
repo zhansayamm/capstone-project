@@ -1,7 +1,7 @@
-import { Avatar, Button, Card, Divider, Flex, Input, Space, Tag, Tooltip, Typography } from "antd";
+import { Avatar, Button, Card, Divider, Flex, Input, List, Modal, Space, Tag, Tooltip, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
-import { listProfessorBookings } from "../../features/bookings/api/bookingApi";
+import { approveBooking, listBookingMessages, listProfessorBookings, postBookingMessage, rejectBooking } from "../../features/bookings/api/bookingApi";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { formatRange } from "../../shared/utils/dateDisplay";
 import { dayjs } from "../../shared/utils/dayjs";
@@ -19,7 +19,12 @@ type BookingGroup = {
 
 export function ProfessorBookingsPage() {
   const bookings = useAsync(listProfessorBookings);
+  const messages = useAsync(listBookingMessages);
+  const postMessage = useAsync(postBookingMessage);
   const [q, setQ] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [chatBooking, setChatBooking] = useState<Booking | null>(null);
+  const [chatText, setChatText] = useState("");
 
   useEffect(() => {
     bookings.run({ limit: 50, upcoming: false });
@@ -118,10 +123,16 @@ export function ProfessorBookingsPage() {
                   {g.bookings.map((b) => {
                     const isPast = dayjs(b.slot.end_time).isBefore(dayjs());
                     const statusTag =
-                      b.status === "booked" ? (
-                        <Tag color="green">Booked</Tag>
+                      b.status === "approved" || b.status === "booked" ? (
+                        <Tag color="green">Approved</Tag>
+                      ) : b.status === "pending" || b.status === "queued" ? (
+                        <Tag color="gold">Pending</Tag>
+                      ) : b.status === "rejected" ? (
+                        <Tag color="red">Rejected</Tag>
+                      ) : b.status === "cancelled" ? (
+                        <Tag>Cancelled</Tag>
                       ) : (
-                        <Tag color="blue">Queued{b.queue_position ? ` (#${b.queue_position})` : ""}</Tag>
+                        <Tag>{b.status}</Tag>
                       );
                     const initials = (formatUserName(b.student, { id: b.student_id })[0] ?? "S").toUpperCase();
                     return (
@@ -161,6 +172,52 @@ export function ProfessorBookingsPage() {
                         <Space>
                           {isPast ? <Tag>Past</Tag> : <Tag color="geekblue">Upcoming</Tag>}
                           {statusTag}
+                          <Button
+                            size="small"
+                            onClick={async () => {
+                              setChatBooking(b);
+                              setChatText("");
+                              await messages.run(b.id, { limit: 100, offset: 0 });
+                            }}
+                          >
+                            Chat
+                          </Button>
+                          {!isPast && (b.status === "pending" || b.status === "queued") ? (
+                            <>
+                              <Button
+                                size="small"
+                                type="primary"
+                                loading={actionLoadingId === b.id}
+                                onClick={async () => {
+                                  setActionLoadingId(b.id);
+                                  try {
+                                    await approveBooking(b.id);
+                                    await bookings.run({ limit: 50, upcoming: false });
+                                  } finally {
+                                    setActionLoadingId(null);
+                                  }
+                                }}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="small"
+                                danger
+                                loading={actionLoadingId === b.id}
+                                onClick={async () => {
+                                  setActionLoadingId(b.id);
+                                  try {
+                                    await rejectBooking(b.id);
+                                    await bookings.run({ limit: 50, upcoming: false });
+                                  } finally {
+                                    setActionLoadingId(null);
+                                  }
+                                }}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          ) : null}
                         </Space>
                       </Flex>
                     );
@@ -171,6 +228,66 @@ export function ProfessorBookingsPage() {
           )}
         </Space>
       </Card>
+
+      <Modal
+        title={chatBooking ? `Booking chat · ${chatBooking.slot.title}` : "Booking chat"}
+        open={!!chatBooking}
+        onCancel={() => {
+          setChatBooking(null);
+          setChatText("");
+        }}
+        footer={null}
+        width={640}
+      >
+        <List
+          size="small"
+          loading={messages.state.loading}
+          dataSource={messages.state.value ?? []}
+          locale={{ emptyText: "No messages yet." }}
+          renderItem={(m) => (
+            <List.Item>
+              <List.Item.Meta
+                title={
+                  <Space size={8} wrap>
+                    <Typography.Text strong>{formatUserName(m.sender, { id: m.sender_id })}</Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {dayjs(m.created_at).format("MMM D, HH:mm")}
+                    </Typography.Text>
+                  </Space>
+                }
+                description={<Typography.Text>{m.message}</Typography.Text>}
+              />
+            </List.Item>
+          )}
+          style={{ maxHeight: 360, overflow: "auto", border: "1px solid rgba(5,5,5,0.06)", borderRadius: 8, padding: 8 }}
+        />
+
+        <div style={{ marginTop: 12 }}>
+          <Input.TextArea
+            value={chatText}
+            onChange={(e) => setChatText(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="Write a message…"
+          />
+          <Flex justify="flex-end" style={{ marginTop: 8 }}>
+            <Button
+              type="primary"
+              loading={postMessage.state.loading}
+              disabled={!chatBooking || !chatText.trim()}
+              onClick={async () => {
+                if (!chatBooking) return;
+                const text = chatText.trim();
+                setChatText("");
+                await postMessage.run(chatBooking.id, text);
+                await messages.run(chatBooking.id, { limit: 100, offset: 0 });
+              }}
+            >
+              Send
+            </Button>
+          </Flex>
+        </div>
+      </Modal>
     </Page>
   );
 }

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import date, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
@@ -10,15 +10,96 @@ from app.core.deps import get_current_user, require_professor, require_student
 from app.db import get_session
 from app.models.booking import Booking
 from app.models.classroom import Classroom
-from app.models.enums import BookingStatus
+from app.models.enums import BookingStatus, UserRole
 from app.models.reservation import Reservation
 from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotRead
+from app.schemas.calendar_month import DayDetailsResponse, MonthSummaryResponse, WeekSummaryResponse
+from app.services.calendar_month_service import CalendarMonthService
 from app.services.calendar_service import CalendarService
-from app.utils.datetime_utils import to_local
+from app.utils.datetime_utils import LOCAL_TZ, to_local, utc_now
 
 calendar_router = APIRouter()
+
+
+@calendar_router.get("/week-summary", response_model=WeekSummaryResponse)
+def calendar_week_summary(
+    week_start: date | None = Query(None),
+    include_bookings: bool = Query(True),
+    include_available_slots: bool = Query(False),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> WeekSummaryResponse:
+    """
+    Loads timed events only for Monday–Sunday (LOCAL_TZ) of the calendar week containing `week_start`.
+    If omitted, defaults to the current week's Monday in LOCAL_TZ.
+    """
+    if week_start is None:
+        ref = utc_now().astimezone(LOCAL_TZ).date()
+    else:
+        ref = week_start
+    if user.role == UserRole.admin:
+        return CalendarMonthService.admin_week_summary(session=session, admin=user, week_start_local=ref)
+    if user.role == UserRole.professor:
+        return CalendarMonthService.professor_week_summary(session=session, professor=user, week_start_local=ref)
+    if user.role == UserRole.student:
+        return CalendarMonthService.student_week_summary(
+            session=session,
+            student=user,
+            week_start_local=ref,
+            include_bookings=include_bookings,
+            include_available_slots=include_available_slots,
+        )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+@calendar_router.get("/month-summary", response_model=MonthSummaryResponse)
+def calendar_month_summary(
+    year: int = Query(ge=2000, le=2100),
+    month: int = Query(ge=1, le=12),
+    include_bookings: bool = Query(True),
+    include_available_slots: bool = Query(False),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> MonthSummaryResponse:
+    if user.role == UserRole.admin:
+        return CalendarMonthService.admin_month_summary(session=session, admin=user, year=year, month=month)
+    if user.role == UserRole.professor:
+        return CalendarMonthService.professor_month_summary(session=session, professor=user, year=year, month=month)
+    if user.role == UserRole.student:
+        return CalendarMonthService.student_month_summary(
+            session=session,
+            student=user,
+            year=year,
+            month=month,
+            include_bookings=include_bookings,
+            include_available_slots=include_available_slots,
+        )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+@calendar_router.get("/day-details", response_model=DayDetailsResponse)
+def calendar_day_details(
+    d: date = Query(alias="date"),
+    include_bookings: bool = Query(True),
+    include_available_slots: bool = Query(False),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> DayDetailsResponse:
+    if user.role == UserRole.admin:
+        return CalendarMonthService.admin_day_details(session=session, admin=user, day=d)
+    if user.role == UserRole.professor:
+        return CalendarMonthService.professor_day_details(session=session, professor=user, day=d)
+    if user.role == UserRole.student:
+        return CalendarMonthService.student_day_details(
+            session=session,
+            student=user,
+            day=d,
+            include_bookings=include_bookings,
+            include_available_slots=include_available_slots,
+        )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 _WEEKDAY_KEYS = [
     "monday",

@@ -100,6 +100,7 @@ export const appRouter = createBrowserRouter([
               { path: "/admin/reservations", element: <AdminReservationsPage /> },
               { path: "/admin/classrooms", element: <AdminClassroomsPage /> },
               { path: "/admin/analytics", element: <AdminAnalyticsPage /> },
+              { path: "/admin/calendar", element: <CalendarPage /> },
             ],
           },
         ],

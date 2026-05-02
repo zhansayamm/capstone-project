@@ -7,6 +7,7 @@ export type Slot = {
   start_time: string;
   end_time: string;
   duration_minutes: number;
+  capacity?: number;
   title: string;
   description?: string | null;
   is_booked: boolean;
@@ -15,7 +16,7 @@ export type Slot = {
   booking_description?: string | null;
 };
 
-export type BookingStatus = "booked" | "queued";
+export type BookingStatus = "pending" | "approved" | "rejected" | "cancelled" | "booked" | "queued";
 
 export type Booking = {
   id: number;
@@ -29,6 +30,8 @@ export type Booking = {
     Slot,
     "professor_id" | "university_id" | "start_time" | "end_time" | "professor" | "title" | "description"
   >;
+  participants_count?: number | null;
+  participants?: UserMini[] | null;
   queue_position?: number | null;
   student?: UserMini | null;
 };
@@ -58,5 +61,14 @@ export type NotificationItem = {
   message: string;
   is_read: boolean;
   created_at: string;
+};
+
+export type BookingMessage = {
+  id: number;
+  booking_id: number;
+  sender_id: number;
+  message: string;
+  created_at: string;
+  sender?: UserMini | null;
 };
 

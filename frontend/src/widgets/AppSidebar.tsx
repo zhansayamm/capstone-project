@@ -43,6 +43,7 @@ function roleMenu(role: "student" | "professor" | "admin"): Item[] {
   return [
     { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
     { key: "/admin/bookings", icon: <BookOutlined />, label: "Bookings" },
+    { key: "/admin/calendar", icon: <CalendarOutlined />, label: "Calendar" },
     { key: "/admin/reservations", icon: <TableOutlined />, label: "Reservations" },
     { key: "/admin/classrooms", icon: <ScheduleOutlined />, label: "Classrooms" },
     { key: "/admin/analytics", icon: <BarChartOutlined />, label: "Analytics" },

@@ -112,15 +112,28 @@ export function ProfessorSlotsPage() {
         <Typography.Title level={2} style={{ margin: 0 }}>
           My slots
         </Typography.Title>
-        <Space>
-          <Button type="primary" onClick={() => setCreateOpen(true)}>
-            Create slot
-          </Button>
-          <Button loading={slots.state.loading} onClick={() => slots.run()}>
+      </Flex>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, flex: 1 }}>
+          {/* (No filters here yet, but keep consistent bar for future) */}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button onClick={() => setCreateOpen(true)}>Create slot</Button>
+          <Button type="primary" loading={slots.state.loading} onClick={() => slots.run()}>
             Refresh
           </Button>
-        </Space>
-      </Flex>
+        </div>
+      </div>
 
       <Card style={{ marginBottom: 16 }}>
         <Flex wrap gap={16} align="start">

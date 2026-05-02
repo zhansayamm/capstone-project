@@ -4,8 +4,10 @@ from typing import List
 
 from app.db import get_session
 from app.schemas.booking import BookingCreate, BookingRead
-from app.core.deps import require_admin, require_student, require_professor
+from app.schemas.booking_message import BookingMessageCreate, BookingMessageRead
+from app.core.deps import get_current_user, require_admin, require_student, require_professor
 from app.services.booking_service import BookingService
+from app.services.booking_message_service import BookingMessageService
 from app.core.limiter import limiter
 
 
@@ -36,7 +38,11 @@ def create_booking(
     session: Session = Depends(get_session)
 ):
     return BookingService.create_booking(
-        session=session, student=current_user, slot_id=data.slot_id, description=data.description
+        session=session,
+        student=current_user,
+        slot_id=data.slot_id,
+        description=data.description,
+        participants=data.participants,
     )
 
 @router.get("/me", response_model=List[BookingRead])
@@ -81,3 +87,52 @@ def cancel_booking(
 ):
     BookingService.cancel_booking(session=session, student=current_user, booking_id=booking_id)
     return {"message": "Booking cancelled"}
+
+
+@router.post("/{booking_id}/approve", response_model=BookingRead)
+@limiter.limit("10/minute;120/hour")
+def approve_booking(
+    request: Request,
+    booking_id: int,
+    current_user=Depends(require_professor),
+    session: Session = Depends(get_session),
+):
+    return BookingService.approve_booking(session=session, professor=current_user, booking_id=booking_id)
+
+
+@router.post("/{booking_id}/reject", response_model=BookingRead)
+@limiter.limit("10/minute;120/hour")
+def reject_booking(
+    request: Request,
+    booking_id: int,
+    current_user=Depends(require_professor),
+    session: Session = Depends(get_session),
+):
+    return BookingService.reject_booking(session=session, professor=current_user, booking_id=booking_id)
+
+
+@router.get("/{booking_id}/messages", response_model=List[BookingMessageRead])
+def list_messages(
+    booking_id: int,
+    current_user=Depends(get_current_user),
+    session: Session = Depends(get_session),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    return BookingMessageService.list_messages(
+        session=session, user=current_user, booking_id=booking_id, limit=limit, offset=offset
+    )
+
+
+@router.post("/{booking_id}/messages", response_model=BookingMessageRead)
+@limiter.limit("30/minute;500/hour")
+def create_message(
+    request: Request,
+    booking_id: int,
+    data: BookingMessageCreate,
+    current_user=Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return BookingMessageService.create_message(
+        session=session, user=current_user, booking_id=booking_id, message=data.message
+    )
