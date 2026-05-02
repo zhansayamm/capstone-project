@@ -17,8 +17,10 @@ export function isWithinBusinessHours(range: [Dayjs, Dayjs]): boolean {
   return startMinutes >= min && endMinutes <= max;
 }
 
-export function disabledTimeForBusinessHours(_: Dayjs | null, _type: "start" | "end") {
-  // AntD disabledTime helpers
+export function disabledTimeForBusinessHours(current: Dayjs | null, type: "start" | "end") {
+  void current;
+  void type;
+  /* Ant Design DatePicker `disabledTime` signature; boundaries use fixed clocks below. */
   const disabledHours = () => {
     const hours: number[] = [];
     for (let h = 0; h < 24; h++) {

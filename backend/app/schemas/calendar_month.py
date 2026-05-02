@@ -71,7 +71,7 @@ class WeekCalendarEvent(BaseModel):
 
     date: str = Field(description="YYYY-MM-DD local calendar day containing start")
     title: str
-    kind: str = Field(description="booking|reservation|slot (student); slot_booked|slot_free (prof); slot_full|slot_open (admin)")
+    kind: str = Field(description="booking|reservation|slot (student week); slot_booked|slot_free (professor + admin week)")
     start: datetime = Field(description="UTC instant (tz-aware)")
     end: datetime = Field(description="UTC instant (tz-aware)")
 

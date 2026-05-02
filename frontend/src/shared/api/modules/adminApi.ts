@@ -7,7 +7,30 @@ export type AdminTotals = {
   total_reservations: number;
 };
 
-export type BookingStats = { booked: number; queued: number };
+export type BookingRollup = {
+  awaiting_review: number;
+  confirmed: number;
+  rejected: number;
+  cancelled: number;
+};
+
+/** Raw counts keyed by backend `BookingStatus` value. */
+export type BookingByStatus = {
+  pending: number;
+  queued: number;
+  approved: number;
+  booked: number;
+  rejected: number;
+  cancelled: number;
+};
+
+export type BookingStats = {
+  rollup: BookingRollup;
+  by_status: BookingByStatus;
+  total: number;
+  /** Rows that did not match a known enum (should be rare). */
+  unknown_status_count?: number;
+};
 
 export async function getTotals(): Promise<AdminTotals> {
   const res = await apiClient.get<AdminTotals>("/admin/stats");

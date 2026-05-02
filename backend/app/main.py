@@ -95,8 +95,8 @@ async def request_logging_middleware(request: Request, call_next):
     finally:
         if profiler is not None:
             profiler.stop()
-            # Optional deep profiling output: printed to stdout only.
-            print(profiler.output_text(unicode=True, color=True))
+            # Pyinstrument emits a large tree; stdout color is suppressed for logs.
+            logger.info("Pyinstrument profile:\n%s", profiler.output_text(unicode=True, color=False))
 
         process_time_ms = int((time.time() - start_time) * 1000)
         if process_time_ms < 100:

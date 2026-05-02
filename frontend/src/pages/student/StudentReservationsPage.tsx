@@ -177,7 +177,7 @@ export function StudentReservationsPage() {
             <DatePicker
               showTime
               style={{ width: "100%" }}
-              disabledTime={(_) => {
+              disabledTime={() => {
                 const disabledHours = () => {
                   const hours: number[] = [];
                   for (let h = 0; h < 24; h++) {

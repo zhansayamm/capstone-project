@@ -347,7 +347,8 @@ class CalendarMonthService:
             approved_n = counts.get(s.id or 0, 0)
             slot_full = getattr(s, "is_booked", False) or approved_n >= cap
             title = (s.title or "General").strip() or "General"
-            kind = "slot_full" if slot_full else "slot_open"
+            # Same kinds as professor week grid (blue occupied vs green-outline open).
+            kind = "slot_booked" if slot_full else "slot_free"
             events.append(
                 WeekCalendarEvent(
                     date=_local_date_str(s.start_time),
@@ -521,6 +522,7 @@ class CalendarMonthService:
 
     @staticmethod
     def admin_month_summary(*, session: Session, admin: User, year: int, month: int) -> MonthSummaryResponse:
+        """University-wide slot groups by local day + title (same shape as professor month grid)."""
         start_u, end_u = _month_range_utc(year=year, month=month)
         uid = admin.university_id
 
@@ -550,6 +552,14 @@ class CalendarMonthService:
             }
         )
 
+        for _booking, slot in bookings:
+            dkey = _local_date_str(slot.start_time)
+            a = days[dkey]
+            a["bookings_any"] = True
+            ns = _norm_booking_status(_booking.status)
+            if ns == BookingStatus.pending:
+                a["pending_student"] = True
+
         slot_ids = [s.id for s in slots if s.id]
         counts = _approved_booking_counts(session, slot_ids)
         capacity_by_id = {s.id: int(getattr(s, "capacity", 1) or 1) for s in slots if s.id}
@@ -560,33 +570,43 @@ class CalendarMonthService:
             a["slots_any"] = True
             cap = capacity_by_id.get(s.id or 0, 1)
             approved_n = counts.get(s.id or 0, 0)
-            slot_full = getattr(s, "is_booked", False) or approved_n >= cap
-            title = (s.title or "General").strip() or "General"
-            tm = _hhmm(s.start_time)
-            if slot_full:
+            slot_full_db = getattr(s, "is_booked", False) or approved_n >= cap
+            if slot_full_db:
                 a["slots_some_full"] = True
-                a["previews"].append(DayPreviewItem(title=title, time=tm, kind="slot_full"))
+                a["slots_all_full"] = a["slots_all_full"] and True
+                a["slots_some_free"] = a["slots_some_free"] or False
             else:
                 a["slots_some_free"] = True
                 a["slots_all_full"] = False
-                a["previews"].append(DayPreviewItem(title=title, time=tm, kind="slot_open"))
+            if approved_n > 0:
+                a["bookings_any"] = True
 
-        for booking, slot in bookings:
-            dkey = _local_date_str(slot.start_time)
-            a = days[dkey]
-            a["bookings_any"] = True
-            ns = _norm_booking_status(booking.status)
-            if ns == BookingStatus.pending:
-                a["pending_student"] = True
-            student = session.get(User, booking.student_id)
-            em = str(student.email) if student else ""
-            st_lbl = (em[:20] + "…") if len(em) > 20 else em or f"student #{booking.student_id}"
-            title = (slot.title or "General").strip() or "General"
-            tm = _hhmm(slot.start_time)
-            kind = "booking_pending" if ns == BookingStatus.pending else "booking_other"
-            a["previews"].append(DayPreviewItem(title=f"{title} · {st_lbl}", time=tm, kind=kind))
+        groups: defaultdict[tuple[str, str], list[Slot]] = defaultdict(list)
+        for s in slots:
+            dkey = _local_date_str(s.start_time)
+            tnorm = (s.title or "General").strip() or "General"
+            groups[(dkey, tnorm)].append(s)
 
-        return MonthSummaryResponse(year=year, month=month, days=_merge_previews(days))
+        for (dkey, tnorm), grp in groups.items():
+            grp_sorted = sorted(grp, key=lambda x: ensure_utc(x.start_time))
+            s0 = grp_sorted[0]
+            slot_max_end = max(grp_sorted, key=lambda s1: ensure_utc(s1.end_time))
+            booked_sum = sum(counts.get(s1.id or 0, 0) for s1 in grp_sorted)
+            cap_sum = sum(capacity_by_id.get(s1.id or 0, 1) for s1 in grp_sorted)
+            band = _professor_usage_band(booked_sum, cap_sum)
+            days[dkey]["previews"].append(
+                DayPreviewItem(
+                    title=tnorm,
+                    time=_hhmm(s0.start_time),
+                    time_end=_hhmm(slot_max_end.end_time),
+                    kind="prof_slot_group",
+                    booked=booked_sum,
+                    capacity=cap_sum,
+                    usage_band=band,
+                ),
+            )
+
+        return MonthSummaryResponse(year=year, month=month, days=_merge_previews(days, preview_limit=2))
 
     # ---- day drill-down -------------------------------------------------
 

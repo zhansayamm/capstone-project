@@ -1,4 +1,4 @@
-import { Card, Col, Flex, Row, Select, Space, Typography } from "antd";
+import { Card, Col, Flex, Row, Select, Space, Table, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -14,11 +14,26 @@ import {
   YAxis,
 } from "recharts";
 
-import { getBookingStats, getTopClassrooms, getTopProfessors, getTotals } from "../../features/admin/api/adminApi";
+import {
+  getBookingStats,
+  getTopClassrooms,
+  getTopProfessors,
+  getTotals,
+  type BookingByStatus,
+} from "../../features/admin/api/adminApi";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { Page } from "../../shared/ui/Page";
 
-const COLORS = ["#1677ff", "#36cfc9", "#9254de", "#ff7a45", "#ffc53d"];
+const COLORS = ["#faad14", "#52c41a", "#ff4d4f", "#8c8c8c", "#1677ff", "#9254de"];
+
+const BY_STATUS_ROWS: Array<{ key: keyof BookingByStatus; label: string }> = [
+  { key: "pending", label: "Pending (awaiting professor)" },
+  { key: "queued", label: "Queued (legacy)" },
+  { key: "approved", label: "Approved" },
+  { key: "booked", label: "Booked (legacy)" },
+  { key: "rejected", label: "Rejected" },
+  { key: "cancelled", label: "Cancelled" },
+];
 
 export function AdminAnalyticsPage() {
   const totals = useAsync(getTotals);
@@ -37,12 +52,24 @@ export function AdminAnalyticsPage() {
   }, []);
 
   const bookingPieData = useMemo(() => {
-    const b = bookingStats.state.value;
-    if (!b) return [];
+    const r = bookingStats.state.value?.rollup;
+    if (!r) return [];
     return [
-      { name: "Booked", value: b.booked },
-      { name: "Queued", value: b.queued },
-    ];
+      { name: "Awaiting review", value: r.awaiting_review },
+      { name: "Confirmed", value: r.confirmed },
+      { name: "Rejected", value: r.rejected },
+      { name: "Cancelled", value: r.cancelled },
+    ].filter((d) => d.value > 0);
+  }, [bookingStats.state.value]);
+
+  const bookingStatusRows = useMemo(() => {
+    const raw = bookingStats.state.value?.by_status;
+    if (!raw) return [];
+    return BY_STATUS_ROWS.map((row) => ({
+      status: row.label,
+      rawKey: row.key,
+      count: raw[row.key],
+    }));
   }, [bookingStats.state.value]);
 
   const topProfessorData = useMemo(() => {
@@ -90,25 +117,64 @@ export function AdminAnalyticsPage() {
           </Card>
         </Col>
         <Col xs={24} md={16}>
-          <Card title="Booking status (Booked vs Queued)">
+          <Card
+            title="Booking pipeline (rollup)"
+            extra={
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Total booking rows: {bookingStats.state.value?.total ?? "—"}
+                {(bookingStats.state.value?.unknown_status_count ?? 0) > 0
+                  ? ` · Unknown status: ${bookingStats.state.value?.unknown_status_count}`
+                  : null}
+              </Typography.Text>
+            }
+          >
+            <Typography.Paragraph type="secondary" style={{ marginTop: 0, fontSize: 12 }}>
+              Rollup merges legacy statuses: queued → awaiting review with pending; booked → confirmed with approved.
+            </Typography.Paragraph>
             <div style={{ height: 260 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip />
-                  <Legend />
-                  <Pie data={bookingPieData} dataKey="value" nameKey="name" outerRadius={90} label>
-                    {bookingPieData.map((_, idx) => (
-                      <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+              {bookingPieData.length === 0 ? (
+                <Flex align="center" justify="center" style={{ height: "100%" }}>
+                  <Typography.Text type="secondary">No bookings in this university yet.</Typography.Text>
+                </Flex>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Tooltip formatter={(value) => [value ?? 0, "Bookings"]} />
+                    <Legend />
+                    <Pie data={bookingPieData} dataKey="value" nameKey="name" outerRadius={90} label>
+                      {bookingPieData.map((_, idx) => (
+                        <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 0 }}>
+        <Col span={24}>
+          <Card title="Bookings by stored status">
+            <Table
+              size="small"
+              pagination={false}
+              rowKey="rawKey"
+              dataSource={bookingStatusRows}
+              columns={[
+                { title: "Status", dataIndex: "status", key: "status" },
+                {
+                  title: "Count",
+                  dataIndex: "count",
+                  key: "count",
+                  align: "right",
+                  width: 100,
+                },
+              ]}
+            />
+          </Card>
+        </Col>
         <Col xs={24} md={12}>
           <Card title="Top professors (slots created)">
             <div style={{ height: 320 }}>

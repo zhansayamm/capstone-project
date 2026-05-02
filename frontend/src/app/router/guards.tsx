@@ -1,3 +1,5 @@
+/** TODO: possibly unused module — routing uses `ProtectedRoute` / `RoleBasedRoute` instead; verify before deletion. */
+
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import type { UserRole } from "../../shared/types/auth";

@@ -27,26 +27,13 @@ const RES_PREVIEW = "#722ed1";
 const SLOT_PREVIEW = "#52c41a";
 
 const STUDENT_MAX_CELL_ITEMS = 2;
-const PROFESSOR_MAX_CELL_GROUPS = 2;
+/** Professor + admin month cells: grouped slot rows (backend caps list). */
+const GROUPED_MONTH_MAX_GROUPS = 2;
 
 function professorUsageAccent(usage_band: string | undefined | null): string {
   if (usage_band === "green") return "#52c41a";
   if (usage_band === "red") return "#ff4d4f";
   return "#faad14";
-}
-
-function stateBackground(state: string | undefined): string {
-  switch (state) {
-    case "green":
-      return "rgba(82, 196, 26, 0.14)";
-    case "orange":
-      return "rgba(250, 173, 20, 0.16)";
-    case "red":
-      return "rgba(255, 77, 79, 0.12)";
-    case "gray":
-    default:
-      return "rgba(0, 0, 0, 0.02)";
-  }
 }
 
 function previewBadge(kind: string): { label: string; color: string } {
@@ -347,15 +334,16 @@ export function CalendarPage() {
           </div>
         </div>
       );
-    } else if (isProfessor) {
+    } else {
+      /* Professor / admin: same grouped slot month UI; admin data is university-wide. */
       const previews = cell?.preview ?? [];
-      const shown = previews.slice(0, PROFESSOR_MAX_CELL_GROUPS);
-      const hiddenBundled = Math.max(0, previews.length - PROFESSOR_MAX_CELL_GROUPS);
+      const shown = previews.slice(0, GROUPED_MONTH_MAX_GROUPS);
+      const hiddenBundled = Math.max(0, previews.length - GROUPED_MONTH_MAX_GROUPS);
       const plusMoreCount = hiddenBundled + (cell?.more_count ?? 0);
 
       inner = (
         <div
-          className="app-cal-day-cell app-cal-day-cell--professor"
+          className={`app-cal-day-cell app-cal-day-cell--grouped-slots app-cal-day-cell--${isProfessor ? "professor" : "admin"}`}
           style={{
             padding: "4px 4px",
             borderRadius: 6,
@@ -385,34 +373,6 @@ export function CalendarPage() {
           </div>
         </div>
       );
-    } else {
-      const bg = stateBackground(cell?.state);
-      inner = (
-        <div
-          className="app-cal-day-cell"
-          style={{
-            minHeight: 76,
-            padding: 4,
-            borderRadius: 6,
-            background: bg,
-            border: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <Typography.Text strong style={{ fontSize: 13 }}>
-            {dayjs(d).date()}
-          </Typography.Text>
-          <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
-            {(cell?.preview ?? []).slice(0, 3).map((p, idx) => (
-              <FacultyPreviewLine key={`${p.kind}-${p.time}-${idx}`} p={p} />
-            ))}
-            {cell && cell.more_count > 0 ? (
-              <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                +{cell.more_count} more
-              </Typography.Text>
-            ) : null}
-          </div>
-        </div>
-      );
     }
 
     return tip ? (
@@ -421,18 +381,6 @@ export function CalendarPage() {
       inner
     );
   };
-
-  const legendFaculty = useMemo(
-    () => (
-      <Space wrap size={8}>
-        <Tag style={{ background: stateBackground("green"), border: "none" }}>Open availability</Tag>
-        <Tag style={{ background: stateBackground("orange"), border: "none" }}>Partial / mixed</Tag>
-        <Tag style={{ background: stateBackground("red"), border: "none" }}>Fully booked</Tag>
-        <Tag style={{ background: stateBackground("gray"), border: "none" }}>Quiet day</Tag>
-      </Space>
-    ),
-    [],
-  );
 
   const legendProfessor = useMemo(
     () => (
@@ -699,13 +647,11 @@ export function CalendarPage() {
                   </Checkbox>
                 </div>
               </>
-            ) : isProfessor ? (
-              <Typography.Text type="secondary">
-                Days show slot groups by title (combined time range and booking fill). Click a day for every slot and student list. Week view shows individual time blocks.
-              </Typography.Text>
             ) : (
               <Typography.Text type="secondary">
-                Institution local dates (Asia/Almaty). Use Month for the month grid or Week for a time-based layout.
+                {isProfessor
+                  ? "Days show slot groups by title (combined time range and booking fill). Click a day for every slot and student list. Week view shows individual time blocks."
+                  : "University-wide office hours grouped the same way: by slot title per day with total bookings vs capacity. Click a day for all slots and students. Week view uses the professor-style busy (blue) vs open (outline) timeline."}
               </Typography.Text>
             )}
             <Flex wrap="wrap" align="center" gap={12}>
@@ -730,7 +676,7 @@ export function CalendarPage() {
                 </Button>
               </Space.Compact>
             </Flex>
-            {isStudent ? legendStudent : isProfessor ? legendProfessor : legendFaculty}
+            {isStudent ? legendStudent : legendProfessor}
             {view === "week" && isStudent ? (
               <Typography.Text type="secondary" style={{ fontSize: 11 }}>
                 Week view: available openings use a green outline; bookings and reservations are solid blocks. Click a block to open that day.
@@ -738,9 +684,7 @@ export function CalendarPage() {
             ) : null}
             {view === "week" && !isStudent ? (
               <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                {role === "admin"
-                  ? "Week: full slots (coral) vs open slots (green outline). Click a block for day details."
-                  : "Week: busy slots (blue) vs open slots (green outline). Click a block for day details."}
+                Week: busy slots (blue) vs open slots (green outline). Click a block for day details.
               </Typography.Text>
             ) : null}
             <div

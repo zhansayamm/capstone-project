@@ -1,7 +1,5 @@
 import { Spin } from "antd";
-import { useEffect } from "react";
-import type { Location } from "react-router-dom";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation, type Location } from "react-router-dom";
 
 import { useAuthStore } from "../../features/auth/store/useAuthStore";
 
@@ -27,13 +25,7 @@ export function ProtectedRoute() {
   const hydrated = useAuthStore((s) => s.hydrated);
   const authReady = useAuthStore((s) => s.authReady);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user = useAuthStore((s) => s.user);
-
   const loading = !hydrated || !authReady;
-
-  useEffect(() => {
-    console.log("USER:", user, "LOADING:", loading, "PATH:", location.pathname);
-  }, [user, loading, location.pathname]);
 
   if (loading) {
     return (

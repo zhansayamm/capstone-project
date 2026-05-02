@@ -1,6 +1,6 @@
 import { Button, Form, Input, Space, Typography, message } from "antd";
 import { useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 
 import { useAsync } from "../../shared/hooks/useAsync";
@@ -26,7 +26,6 @@ function getApiErrorMessage(err: unknown): string {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuthActions();
   const { state, run } = useAsync(login);
   const hydrated = useAuthStore((s) => s.hydrated);
@@ -35,18 +34,13 @@ export function LoginPage() {
   const user = useAuthStore((s) => s.user);
   const loading = !hydrated || !authReady;
 
-  useEffect(() => {
-    console.log("USER:", user, "LOADING:", loading, "PATH:", location.pathname);
-  }, [user, loading, location.pathname]);
-
   /* Already logged in (e.g. stored session): go to role dashboard — do not use `next`. */
   useEffect(() => {
     if (loading) return;
     if (!isAuthenticated || !user?.role) return;
     const target = defaultRouteForRole(user.role);
-    console.log("USER:", user, "LOADING:", loading, "PATH:", location.pathname, "→ redirect", target);
     navigate(target, { replace: true });
-  }, [loading, isAuthenticated, user, navigate, location.pathname]);
+  }, [loading, isAuthenticated, user, navigate]);
 
   return (
     <CenteredCard title="Sign in to Booking Time">
@@ -54,11 +48,9 @@ export function LoginPage() {
         layout="vertical"
         requiredMark={false}
         onFinish={async (values) => {
-          console.debug("[ui] login submit", values);
           try {
             const me = await run(values);
             const target = defaultRouteForRole(me.role);
-            console.log("USER:", me, "LOADING:", false, "PATH:", location.pathname, "→ redirect", target);
             navigate(target, { replace: true });
           } catch (e: unknown) {
             message.error(getApiErrorMessage(e));

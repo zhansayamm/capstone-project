@@ -1,3 +1,5 @@
+/** TODO: possibly unused file — not imported by `appRouter.tsx`; verify before deletion or wire to navigation. */
+
 import { Button, Card, Typography } from "antd";
 
 import { calendarApi } from "../../shared/api";

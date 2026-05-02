@@ -1,3 +1,5 @@
+/** TODO: possibly unused file — not imported by `appRouter.tsx` (students use `/student/notifications` → `NotificationsPage`); verify before deletion. */
+
 import { Button, Card, Flex, List, Space, Tag, Typography } from "antd";
 import { useEffect } from "react";
 

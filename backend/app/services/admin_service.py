@@ -1,3 +1,5 @@
+from collections import Counter
+
 from sqlmodel import Session, select
 
 from app.models.booking import Booking
@@ -6,6 +8,16 @@ from app.models.enums import BookingStatus
 from app.models.reservation import Reservation
 from app.models.slot import Slot
 from app.models.user import User
+
+
+def _booking_status(booking: Booking) -> BookingStatus | None:
+    raw = booking.status
+    if isinstance(raw, BookingStatus):
+        return raw
+    try:
+        return BookingStatus(str(raw))
+    except ValueError:
+        return None
 
 
 class AdminService:
@@ -38,9 +50,40 @@ class AdminService:
         bookings = session.exec(
             select(Booking).where(Booking.university_id == admin.university_id)
         ).all()
-        booked = sum(1 for b in bookings if b.status == BookingStatus.booked)
-        queued = sum(1 for b in bookings if b.status == BookingStatus.queued)
-        return {"booked": booked, "queued": queued}
+        counts: Counter[BookingStatus] = Counter()
+        unknown_other = 0
+        for b in bookings:
+            st = _booking_status(b)
+            if st is None:
+                unknown_other += 1
+            else:
+                counts[st] += 1
+
+        by_status = {
+            BookingStatus.pending.value: int(counts[BookingStatus.pending]),
+            BookingStatus.queued.value: int(counts[BookingStatus.queued]),
+            BookingStatus.approved.value: int(counts[BookingStatus.approved]),
+            BookingStatus.booked.value: int(counts[BookingStatus.booked]),
+            BookingStatus.rejected.value: int(counts[BookingStatus.rejected]),
+            BookingStatus.cancelled.value: int(counts[BookingStatus.cancelled]),
+        }
+
+        awaiting_review = by_status["pending"] + by_status["queued"]
+        confirmed = by_status["approved"] + by_status["booked"]
+
+        out = {
+            "rollup": {
+                "awaiting_review": awaiting_review,
+                "confirmed": confirmed,
+                "rejected": by_status["rejected"],
+                "cancelled": by_status["cancelled"],
+            },
+            "by_status": by_status,
+            "total": len(bookings),
+        }
+        if unknown_other:
+            out["unknown_status_count"] = unknown_other
+        return out
 
     @staticmethod
     def get_top_professors(*, session: Session, admin: User) -> list[dict]:

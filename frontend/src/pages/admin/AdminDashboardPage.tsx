@@ -1,4 +1,4 @@
-import { Card, Col, Row, Statistic, Typography } from "antd";
+import { Card, Col, Divider, Row, Statistic, Typography } from "antd";
 import { useEffect } from "react";
 
 import { getBookingStats, getTotals, getTopClassrooms, getTopProfessors } from "../../features/admin/api/adminApi";
@@ -50,10 +50,20 @@ export function AdminDashboardPage() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} md={8}>
-          <Card title="Booking status">
-            <Statistic title="Booked" value={bookingStats.state.value?.booked ?? "—"} />
-            <div style={{ height: 10 }} />
-            <Statistic title="Queued" value={bookingStats.state.value?.queued ?? "—"} />
+          <Card title="Booking pipeline">
+            {bookingStats.state.value?.rollup ? (
+              <>
+                <Statistic title="Awaiting review" value={bookingStats.state.value.rollup.awaiting_review} />
+                <Divider style={{ margin: "12px 0" }} />
+                <Statistic title="Confirmed" value={bookingStats.state.value.rollup.confirmed} />
+                <Divider style={{ margin: "12px 0" }} />
+                <Statistic title="Rejected" value={bookingStats.state.value.rollup.rejected} />
+                <Divider style={{ margin: "12px 0" }} />
+                <Statistic title="Cancelled" value={bookingStats.state.value.rollup.cancelled} />
+              </>
+            ) : (
+              <Typography.Text type="secondary">—</Typography.Text>
+            )}
           </Card>
         </Col>
         <Col xs={24} md={8}>
