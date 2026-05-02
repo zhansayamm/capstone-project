@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from jose import jwt
@@ -14,20 +15,20 @@ pwd_context = CryptContext(
 
 
 def normalize_password(password: str) -> str:
-    # bcrypt supports max 72 bytes
-    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    # Convert ANY password into fixed-length string (64 chars) before bcrypt (72-byte limit).
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def hash_password(password: str) -> str:
-    password = normalize_password(password)
-    logger.debug("Normalized password length: %s", len(password))
-    return pwd_context.hash(password)
+    normalized = normalize_password(password)
+    logger.debug("Normalized password length: %s", len(normalized))
+    return pwd_context.hash(normalized)
 
 
 def verify_password(password: str, hash: str) -> bool:  # noqa: A002
-    password = normalize_password(password)
-    logger.debug("Normalized password length: %s", len(password))
-    return pwd_context.verify(password, hash)
+    normalized = normalize_password(password)
+    logger.debug("Normalized password length: %s", len(normalized))
+    return pwd_context.verify(normalized, hash)
 
 
 def create_token(data: dict):
