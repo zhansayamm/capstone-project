@@ -37,3 +37,8 @@ export async function requestPasswordReset(email: string): Promise<{ message?: s
   return res.data;
 }
 
+export async function resetPassword(data: { token: string; new_password: string }): Promise<{ message?: string } | void> {
+  const res = await apiClient.post<{ message?: string }>("/auth/reset-password", data);
+  return res.data;
+}
+

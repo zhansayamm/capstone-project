@@ -3,7 +3,8 @@ import { useEffect } from "react";
 
 import { listMyNotifications, markAllNotificationsRead } from "../../features/notifications/api/notificationApi";
 import { useAsync } from "../../shared/hooks/useAsync";
-import { dayjs } from "../../shared/utils/dayjs";
+import { dayjsToAppTz } from "../../shared/utils/dayjs";
+import { formatNotificationMessage } from "../../shared/utils/notificationText";
 import { Page } from "../../shared/ui/Page";
 
 export function StudentNotificationsPage() {
@@ -43,10 +44,10 @@ export function StudentNotificationsPage() {
               <List.Item.Meta
                 title={
                   <Space>
-                    <Typography.Text strong>{n.message}</Typography.Text>
+                    <Typography.Text strong>{formatNotificationMessage(n.message)}</Typography.Text>
                   </Space>
                 }
-                description={dayjs(n.created_at).fromNow()}
+                description={dayjsToAppTz(n.created_at).fromNow()}
               />
             </List.Item>
           )}

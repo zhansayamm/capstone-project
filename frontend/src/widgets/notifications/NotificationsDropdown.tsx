@@ -5,7 +5,8 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useNotificationsStore } from "../../features/notifications/store/useNotificationsStore";
-import { dayjs } from "../../shared/utils/dayjs";
+import { dayjsToAppTz } from "../../shared/utils/dayjs";
+import { formatNotificationMessage } from "../../shared/utils/notificationText";
 
 export function NotificationsDropdown() {
   const navigate = useNavigate();
@@ -59,12 +60,12 @@ export function NotificationsDropdown() {
                     }}
                   >
                     <Typography.Text strong={!n.is_read} ellipsis style={{ maxWidth: 240, display: "inline-block" }}>
-                      {n.message}
+                      {formatNotificationMessage(n.message)}
                     </Typography.Text>
                   </Button>
                 </Space>
               }
-              description={dayjs(n.created_at).fromNow()}
+              description={dayjsToAppTz(n.created_at).fromNow()}
             />
           </List.Item>
         )}

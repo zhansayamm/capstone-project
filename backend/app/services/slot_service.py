@@ -7,7 +7,7 @@ from app.models.booking import Booking
 from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotCreate
-from app.utils.datetime_utils import is_within_business_hours
+from app.utils.datetime_utils import BUSINESS_END_LOCAL, BUSINESS_START_LOCAL, ensure_utc, is_within_business_hours, to_local
 
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ class SlotService:
             "id": slot.id,
             "professor_id": slot.professor_id,
             "university_id": slot.university_id,
-            "start_time": slot.start_time,
-            "end_time": slot.end_time,
+            "start_time": to_local(slot.start_time),
+            "end_time": to_local(slot.end_time),
             "is_booked": slot.is_booked,
             "professor": professor,
         }
@@ -36,8 +36,17 @@ class SlotService:
         if data.start_time >= data.end_time:
             raise ConflictException("Start time must be before end time")
 
+        local_start = to_local(data.start_time)
+        local_end = to_local(data.end_time)
+        s_time = local_start.time().replace(tzinfo=None)
+        e_time = local_end.time().replace(tzinfo=None)
+        if s_time < BUSINESS_START_LOCAL:
+            raise ConflictException("Slots cannot start before 08:30")
+        if e_time > BUSINESS_END_LOCAL:
+            raise ConflictException("Slots must end before 17:30")
+
         if not is_within_business_hours(data.start_time, data.end_time):
-            raise ConflictException("Slots must be within 08:30–17:30 UTC on the same day")
+            raise ConflictException("Slots must be within 08:30–17:30 on the same day")
 
         now = datetime.now(timezone.utc)
         if data.start_time <= now:

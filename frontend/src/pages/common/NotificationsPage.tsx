@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useNotificationsStore } from "../../features/notifications/store/useNotificationsStore";
 import { Page } from "../../shared/ui/Page";
 import { formatDateTime } from "../../shared/utils/dateDisplay";
+import { debugError, debugLog } from "../../shared/utils/debug";
+import { formatNotificationMessage } from "../../shared/utils/notificationText";
 
 export function NotificationsPage() {
   const items = useNotificationsStore((s) => s.items);
@@ -14,7 +16,19 @@ export function NotificationsPage() {
   const markRead = useNotificationsStore((s) => s.markRead);
 
   useEffect(() => {
-    fetch();
+    (async () => {
+      try {
+        debugLog("[ui] notifications page open");
+        await fetch();
+        debugLog("[api] notifications fetched", { count: useNotificationsStore.getState().items.length });
+        await markAllRead();
+        debugLog("[api] notifications marked all read");
+        await fetch();
+        debugLog("[api] notifications re-fetched", { unread: useNotificationsStore.getState().unreadCount });
+      } catch (e) {
+        debugError("[ui] notifications lifecycle failed", e);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -26,9 +40,6 @@ export function NotificationsPage() {
         </Typography.Title>
         <Space>
           <Tag color={unreadCount > 0 ? "blue" : "default"}>Unread: {unreadCount}</Tag>
-          <Button disabled={loading || unreadCount === 0} onClick={() => markAllRead()}>
-            Mark all read
-          </Button>
           <Button loading={loading} onClick={() => fetch()}>
             Refresh
           </Button>
@@ -51,7 +62,7 @@ export function NotificationsPage() {
               <List.Item.Meta
                 title={
                   <Space>
-                    <Typography.Text strong={!n.is_read}>{n.message}</Typography.Text>
+                    <Typography.Text strong={!n.is_read}>{formatNotificationMessage(n.message)}</Typography.Text>
                   </Space>
                 }
                 description={formatDateTime(n.created_at)}

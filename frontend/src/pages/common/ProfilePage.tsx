@@ -1,5 +1,5 @@
 import { BankOutlined, CameraOutlined, MailOutlined, SafetyOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Descriptions, Divider, Flex, Skeleton, Space, Tag, Typography, Upload, message } from "antd";
+import { Avatar, Button, Card, Descriptions, Divider, Flex, Modal, Skeleton, Space, Tag, Typography, Upload, message } from "antd";
 import type { UploadProps } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
@@ -9,6 +9,7 @@ import { listUniversities, requestPasswordReset } from "../../shared/api/modules
 import { getImageTask, uploadImage } from "../../shared/api/modules/imageApi";
 import { setMyAvatar } from "../../shared/api/modules/userApi";
 import { useAsync } from "../../shared/hooks/useAsync";
+import { debugError, debugLog } from "../../shared/utils/debug";
 import { Page } from "../../shared/ui/Page";
 
 function roleLabel(role: string | undefined) {
@@ -25,6 +26,7 @@ export function ProfilePage() {
   const universities = useAsync(listUniversities);
   const resetPassword = useAsync(requestPasswordReset);
   const [uploading, setUploading] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
   useEffect(() => {
     me.run();
@@ -75,6 +77,7 @@ export function ProfilePage() {
               await setMyAvatar(status.image_id);
               await hydrateMe();
               message.success("Avatar updated");
+              setAvatarModalOpen(false);
               return false;
             }
             message.info("Still finalizing image…");
@@ -146,11 +149,9 @@ export function ProfilePage() {
                         </div>
                       </Flex>
 
-                      <Upload {...uploadProps}>
-                        <Button icon={<CameraOutlined />} loading={uploading} disabled={uploading}>
-                          Upload
-                        </Button>
-                      </Upload>
+                      <Button icon={<CameraOutlined />} loading={uploading} disabled={uploading} onClick={() => setAvatarModalOpen(true)}>
+                        Change avatar
+                      </Button>
                     </Flex>
 
                     <Divider style={{ margin: "10px 0" }} />
@@ -180,9 +181,12 @@ export function ProfilePage() {
                       try {
                         const email = user?.email;
                         if (!email) return;
+                        debugLog("[ui] request password reset", { email });
                         await resetPassword.run(email);
+                        debugLog("[api] request password reset ok");
                         message.success("Password reset link sent to your email");
                       } catch {
+                        debugError("[api] request password reset failed");
                         message.error("Failed to send reset link. Please try again.");
                       }
                     }}
@@ -209,6 +213,17 @@ export function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      <Modal title="Change avatar" open={avatarModalOpen} onCancel={() => setAvatarModalOpen(false)} footer={null}>
+        <Typography.Paragraph type="secondary">
+          Upload a JPG/PNG (max 5MB). It will be compressed in the background and saved immediately.
+        </Typography.Paragraph>
+        <Upload {...uploadProps}>
+          <Button type="primary" loading={uploading} disabled={uploading}>
+            Select image
+          </Button>
+        </Upload>
+      </Modal>
     </Page>
   );
 }

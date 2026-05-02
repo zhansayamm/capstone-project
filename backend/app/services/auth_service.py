@@ -11,6 +11,7 @@ from app.schemas.user import UserCreate
 from app.tasks.email_tasks import send_email_task
 
 from datetime import datetime, timedelta, timezone
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ class AuthService:
                 {"user_id": user.id, "type": "password_reset", "exp": exp}
             )
 
-            link = f"http://localhost:8000/auth/reset-password?token={token}"
+            frontend_base = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            link = f"{frontend_base}/reset-password?token={token}"
             send_email_task.delay(
                 user.email,
                 "Password Reset",

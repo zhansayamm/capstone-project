@@ -16,6 +16,7 @@ from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotRead
 from app.services.calendar_service import CalendarService
+from app.utils.datetime_utils import to_local
 
 calendar_router = APIRouter()
 
@@ -59,23 +60,25 @@ def professor_week_schedule(
     week = _empty_week()
     for slot in sorted(slots, key=lambda s: s.start_time):
         professor = session.get(User, slot.professor_id)
-        week[_weekday_bucket(slot.start_time)].append(
-            {
-                **SlotRead.model_validate(slot).model_dump(),
-                "professor": professor,
-            }
-        )
+        payload = SlotRead.model_validate(slot).model_dump()
+        payload["start_time"] = to_local(slot.start_time)
+        payload["end_time"] = to_local(slot.end_time)
+        payload["professor"] = professor
+        week[_weekday_bucket(slot.start_time)].append(payload)
     return week
 
 
 def _booking_with_slot_dict(*, session: Session, booking: Booking, slot: Slot) -> dict:
     professor = session.get(User, slot.professor_id)
+    slot_payload = SlotRead.model_validate(slot).model_dump()
+    slot_payload["start_time"] = to_local(slot.start_time)
+    slot_payload["end_time"] = to_local(slot.end_time)
     return {
         "id": booking.id,
         "status": booking.status,
-        "created_at": booking.created_at,
+        "created_at": to_local(booking.created_at),
         "slot": {
-            **SlotRead.model_validate(slot).model_dump(),
+            **slot_payload,
             "professor": professor,
         },
     }
@@ -121,9 +124,9 @@ def student_schedule(
                 "classroom_name": classroom.name,
                 "university_id": reservation.university_id,
                 "user_id": reservation.user_id,
-                "start_time": reservation.start_time,
-                "end_time": reservation.end_time,
-                "created_at": reservation.created_at,
+                "start_time": to_local(reservation.start_time),
+                "end_time": to_local(reservation.end_time),
+                "created_at": to_local(reservation.created_at),
             }
         )
 

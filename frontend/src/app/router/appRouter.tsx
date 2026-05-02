@@ -9,6 +9,7 @@ import { AdminLayout } from "../../layouts/AdminLayout";
 
 import { LoginPage } from "../../pages/auth/LoginPage";
 import { RegisterPage } from "../../pages/auth/RegisterPage";
+import { ResetPasswordPage } from "../../pages/auth/ResetPasswordPage";
 
 import { StudentDashboardPage } from "../../pages/student/StudentDashboardPage";
 import { StudentSlotsPage } from "../../pages/student/StudentSlotsPage";
@@ -38,6 +39,7 @@ export const appRouter = createBrowserRouter([
     children: [
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
     ],
   },
   { path: "/403", element: <ForbiddenPage /> },

@@ -6,6 +6,7 @@ from app.db import get_session
 from app.models.user import User
 from app.schemas.notification import NotificationRead
 from app.services.notification_service import NotificationService
+from app.utils.datetime_utils import to_local
 
 notification_router = APIRouter()
 
@@ -16,7 +17,15 @@ def get_my_notifications(
     current_user: User = Depends(get_current_user),
 ):
     items = NotificationService.get_user_notifications(session, current_user)
-    return [NotificationRead.model_validate(n) for n in items]
+    return [
+        {
+            "id": n.id,
+            "message": n.message,
+            "created_at": to_local(n.created_at),
+            "is_read": n.is_read,
+        }
+        for n in items
+    ]
 
 
 @notification_router.get("/unread", response_model=list[NotificationRead])
@@ -25,7 +34,15 @@ def get_unread_notifications(
     current_user: User = Depends(get_current_user),
 ):
     items = NotificationService.get_unread_notifications(session, current_user)
-    return [NotificationRead.model_validate(n) for n in items]
+    return [
+        {
+            "id": n.id,
+            "message": n.message,
+            "created_at": to_local(n.created_at),
+            "is_read": n.is_read,
+        }
+        for n in items
+    ]
 
 
 @notification_router.patch("/{notification_id}/read", response_model=NotificationRead)
@@ -35,7 +52,12 @@ def mark_notification_read(
     current_user: User = Depends(get_current_user),
 ):
     n = NotificationService.mark_as_read(session, current_user, notification_id)
-    return NotificationRead.model_validate(n)
+    return {
+        "id": n.id,
+        "message": n.message,
+        "created_at": to_local(n.created_at),
+        "is_read": n.is_read,
+    }
 
 
 @notification_router.patch("/me/read-all")

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { listAllReservations } from "../../features/reservations/api/reservationApi";
 import { useAsync } from "../../shared/hooks/useAsync";
-import { dayjs } from "../../shared/utils/dayjs";
+import { dayjsToAppTz } from "../../shared/utils/dayjs";
 import { formatRange } from "../../shared/utils/dateDisplay";
 import { formatUserName } from "../../shared/utils/userDisplay";
 import { Page } from "../../shared/ui/Page";
@@ -69,7 +69,7 @@ export function AdminReservationsPage() {
       sorter: (a, b) => (a.start_time < b.start_time ? -1 : 1),
       render: (_, r) => formatRange(r.start_time, r.end_time),
     },
-    { title: "Created", dataIndex: "created_at", render: (v) => dayjs(v).fromNow() },
+    { title: "Created", dataIndex: "created_at", render: (v) => dayjsToAppTz(v).fromNow() },
   ];
 
   return (

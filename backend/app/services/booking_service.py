@@ -9,7 +9,7 @@ from app.models.enums import BookingStatus
 from app.models.slot import Slot
 from app.models.user import User
 from app.services.notification_service import NotificationService
-from app.utils.datetime_utils import ensure_utc, utc_now
+from app.utils.datetime_utils import ensure_utc, to_local, utc_now
 
 
 logger = logging.getLogger(__name__)
@@ -44,12 +44,12 @@ class BookingService:
             "slot_id": booking.slot_id,
             "university_id": booking.university_id,
             "status": booking.status,
-            "created_at": booking.created_at,
+            "created_at": to_local(booking.created_at),
             "slot": {
                 "professor_id": slot.professor_id,
                 "university_id": slot.university_id,
-                "start_time": slot.start_time,
-                "end_time": slot.end_time,
+                "start_time": to_local(slot.start_time),
+                "end_time": to_local(slot.end_time),
                 "professor": professor,
             },
             "queue_position": queue_position,
