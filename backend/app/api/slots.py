@@ -11,7 +11,7 @@ from app.core.limiter import limiter
 
 router = APIRouter()
 
-@router.post("/", response_model=SlotRead)
+@router.post("/", response_model=list[SlotRead])
 @limiter.limit("10/minute;120/hour")
 def create_slot(
     request: Request,

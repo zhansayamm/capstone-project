@@ -27,6 +27,11 @@ LOCAL_TZ = ZoneInfo("Asia/Almaty")
 
 class NotificationService:
     @staticmethod
+    def _format_local(dt: datetime) -> str:
+        local_dt = NotificationService._as_utc(dt).astimezone(LOCAL_TZ)
+        return local_dt.strftime("%d %b %Y, %H:%M (%Z)")
+
+    @staticmethod
     def _as_utc(dt: datetime) -> datetime:
         if dt.tzinfo is None:
             return dt.replace(tzinfo=timezone.utc)
@@ -103,64 +108,71 @@ class NotificationService:
 
     @staticmethod
     def booking_confirmed(user: User, slot: Slot) -> None:
+        when = NotificationService._format_local(slot.start_time)
         send_email_task.delay(
             user.email,
             "Booking Confirmed",
-            f"You booked a slot at {slot.start_time}",
+            f"You booked a slot at {when}",
         )
 
     @staticmethod
     def booking_cancelled(user: User, slot: Slot) -> None:
+        when = NotificationService._format_local(slot.start_time)
         send_email_task.delay(
             user.email,
             "Booking Cancelled",
-            f"Your booking at {slot.start_time} was cancelled",
+            f"Your booking at {when} was cancelled",
         )
 
     @staticmethod
     def moved_from_queue(user: User, slot: Slot) -> None:
+        when = NotificationService._format_local(slot.start_time)
         send_email_task.delay(
             user.email,
             "You are now booked!",
-            f"You got a slot at {slot.start_time}",
+            f"You got a slot at {when}",
         )
 
     @staticmethod
     def reservation_confirmed(user: User, reservation: Reservation, classroom) -> None:
+        when = NotificationService._format_local(reservation.start_time)
         send_email_task.delay(
             user.email,
             "Reservation Confirmed",
-            f"Classroom {classroom.name} reserved at {reservation.start_time}",
+            f"Classroom {classroom.name} reserved at {when}",
         )
 
     @staticmethod
     def reservation_cancelled_email(owner: User, *, classroom_name: str, start_time) -> None:
+        when = NotificationService._format_local(start_time)
         send_email_task.delay(
             owner.email,
             "Reservation Cancelled",
-            f"Your reservation for classroom {classroom_name} starting at {start_time} was cancelled.",
+            f"Your reservation for classroom {classroom_name} starting at {when} was cancelled.",
         )
 
     @staticmethod
     def schedule_booking_reminder(user: User, slot: Slot) -> None:
-        reminder_message = f"Reminder: your event starts at {slot.start_time}"
+        when = NotificationService._format_local(slot.start_time)
+        reminder_message = f"Reminder: your event starts at {when}"
         NotificationService._schedule_reminder_eta(
             user=user,
             reminder_message=reminder_message,
             email_subject="Reminder",
-            email_body=f"Your booking starts at {slot.start_time}",
+            email_body=f"Your booking starts at {when}",
             event_start=slot.start_time,
             context=f"booking user_id={user.id} slot_id={slot.id}",
         )
 
     @staticmethod
     def schedule_reservation_reminder(user: User, reservation: Reservation, classroom) -> None:
-        reminder_message = f"Reminder: your event starts at {reservation.start_time}"
+        when = NotificationService._format_local(reservation.start_time)
+        reminder_message = f"Reminder: your event starts at {when}"
         NotificationService._schedule_reminder_eta(
             user=user,
             reminder_message=reminder_message,
             email_subject="Reminder",
-            email_body=f"Your reservation in {classroom.name} starts at {reservation.start_time}",
+            email_body=f"Your reservation in {classroom.name} starts at {when}",
             event_start=reservation.start_time,
             context=f"reservation user_id={user.id} reservation_id={reservation.id}",
         )
@@ -212,12 +224,14 @@ class NotificationService:
     @staticmethod
     def send_booking_confirmed(session: Session, user: User, slot: Slot) -> Notification:
         NotificationService.booking_confirmed(user, slot)
-        message = f"You booked a slot at {slot.start_time}"
+        when = NotificationService._format_local(slot.start_time)
+        message = f"You booked a slot at {when}"
         return NotificationService.create_notification(session, user, message, subject="Booking Confirmed")
 
     @staticmethod
     def send_booking_queued(session: Session, user: User, slot: Slot) -> Notification:
-        message = f"You are added to queue for slot at {slot.start_time}"
+        when = NotificationService._format_local(slot.start_time)
+        message = f"You are added to queue for slot at {when}"
         return NotificationService.create_notification(
             session,
             user,
@@ -228,7 +242,8 @@ class NotificationService:
     @staticmethod
     def send_queue_promoted(session: Session, user: User, slot: Slot) -> Notification:
         NotificationService.moved_from_queue(user, slot)
-        message = f"You were moved from queue to booked for {slot.start_time}"
+        when = NotificationService._format_local(slot.start_time)
+        message = f"You were moved from queue to booked for {when}"
         return NotificationService.create_notification(session, user, message, subject="You are now booked!")
 
     @staticmethod
@@ -245,7 +260,8 @@ class NotificationService:
 
         classroom_label = classroom_name or str(reservation.classroom_id)
         NotificationService.reservation_confirmed(user, reservation, _Classroom(classroom_label))
-        message = f"Classroom {classroom_label} reserved at {reservation.start_time}"
+        when = NotificationService._format_local(reservation.start_time)
+        message = f"Classroom {classroom_label} reserved at {when}"
         return NotificationService.create_notification(
             session,
             user,
@@ -256,12 +272,14 @@ class NotificationService:
     @staticmethod
     def send_booking_cancelled(session: Session, user: User, slot: Slot) -> Notification:
         NotificationService.booking_cancelled(user, slot)
-        message = f"Your booking at {slot.start_time} was cancelled"
+        when = NotificationService._format_local(slot.start_time)
+        message = f"Your booking at {when} was cancelled"
         return NotificationService.create_notification(session, user, message, subject="Booking Cancelled")
 
     @staticmethod
     def _reminder_message_for_time(start_time: datetime) -> str:
-        return f"Reminder: your event starts at {start_time}"
+        when = NotificationService._format_local(start_time)
+        return f"Reminder: your event starts at {when}"
 
     @staticmethod
     def _reminder_exists(session: Session, user_id: int, message: str) -> bool:

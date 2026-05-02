@@ -36,7 +36,7 @@ def create_booking(
     session: Session = Depends(get_session)
 ):
     return BookingService.create_booking(
-        session=session, student=current_user, slot_id=data.slot_id
+        session=session, student=current_user, slot_id=data.slot_id, description=data.description
     )
 
 @router.get("/me", response_model=List[BookingRead])

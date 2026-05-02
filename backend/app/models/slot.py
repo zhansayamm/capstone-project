@@ -11,6 +11,10 @@ class Slot(SQLModel, table=True):
 
     start_time: datetime
     end_time: datetime
+    duration_minutes: int = Field(default=30)
+
+    title: str = Field(default="General", max_length=100)
+    description: str | None = Field(default=None)
 
     is_booked: bool = False
 

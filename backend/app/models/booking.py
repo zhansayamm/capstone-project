@@ -14,6 +14,7 @@ class Booking(SQLModel, table=True):
 
     status: BookingStatus = BookingStatus.booked
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    description: Optional[str] = Field(default=None, max_length=200)
 
     student: Optional["User"] = Relationship(back_populates="bookings")
     slot: Optional["Slot"] = Relationship(back_populates="bookings")

@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Input, Space, Table, Tag, Typography } from "antd";
+import { Button, Card, Flex, Input, Space, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 
@@ -29,6 +29,18 @@ export function StudentBookingsPage() {
 
   const columns: ColumnsType<Booking> = [
     {
+      title: "Title",
+      key: "title",
+      render: (_, b) =>
+        b.slot.description ? (
+          <Tooltip title={b.slot.description}>
+            <Typography.Text>{b.slot.title}</Typography.Text>
+          </Tooltip>
+        ) : (
+          <Typography.Text>{b.slot.title}</Typography.Text>
+        ),
+    },
+    {
       title: "When",
       key: "when",
       render: (_, b) => {
@@ -41,6 +53,18 @@ export function StudentBookingsPage() {
           </Space>
         );
       },
+    },
+    {
+      title: "Note",
+      key: "note",
+      render: (_, b) =>
+        b.description ? (
+          <Typography.Text type="secondary" style={{ fontStyle: "italic" }}>
+            {b.description}
+          </Typography.Text>
+        ) : (
+          <Typography.Text type="secondary">—</Typography.Text>
+        ),
     },
     {
       title: "Professor",

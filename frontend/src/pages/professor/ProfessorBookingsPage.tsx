@@ -1,5 +1,4 @@
-import { Button, Card, Flex, Input, Space, Table, Tag, Typography } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { Avatar, Button, Card, Divider, Flex, Input, Space, Tag, Tooltip, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { listProfessorBookings } from "../../features/bookings/api/bookingApi";
@@ -9,6 +8,14 @@ import { dayjs } from "../../shared/utils/dayjs";
 import { formatUserName } from "../../shared/utils/userDisplay";
 import { Page } from "../../shared/ui/Page";
 import type { Booking } from "../../shared/types/domain";
+
+type BookingGroup = {
+  key: string;
+  title: string;
+  description?: string | null;
+  dateKey: string; // YYYY-MM-DD
+  bookings: Booking[];
+};
 
 export function ProfessorBookingsPage() {
   const bookings = useAsync(listProfessorBookings);
@@ -23,43 +30,41 @@ export function ProfessorBookingsPage() {
     const items = bookings.state.value ?? [];
     const query = q.trim().toLowerCase();
     if (!query) return items;
-    return items.filter((b) => formatUserName(b.student, { id: b.student_id }).toLowerCase().includes(query));
+    return items.filter((b) => {
+      const student = formatUserName(b.student, { id: b.student_id }).toLowerCase();
+      const title = (b.slot.title ?? "").toLowerCase();
+      return student.includes(query) || title.includes(query);
+    });
   }, [bookings.state.value, q]);
 
-  const columns: ColumnsType<Booking> = [
-    {
-      title: "Student",
-      key: "student",
-      render: (_, b) => formatUserName(b.student, { id: b.student_id }),
-      sorter: (a, b) =>
-        formatUserName(a.student, { id: a.student_id }).localeCompare(formatUserName(b.student, { id: b.student_id })),
-    },
-    {
-      title: "When",
-      key: "when",
-      sorter: (a, b) => (a.slot.start_time < b.slot.start_time ? -1 : 1),
-      render: (_, b) => {
-        const end = dayjs(b.slot.end_time);
-        const isPast = end.isBefore(dayjs());
-        return (
-          <Space>
-            <span>{formatRange(b.slot.start_time, b.slot.end_time)}</span>
-            {isPast ? <Tag>Past</Tag> : <Tag color="geekblue">Upcoming</Tag>}
-          </Space>
-        );
-      },
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (s, row) =>
-        s === "booked" ? (
-          <Tag color="green">Booked</Tag>
-        ) : (
-          <Tag color="blue">Queued{row.queue_position ? ` (#${row.queue_position})` : ""}</Tag>
-        ),
-    },
-  ];
+  const grouped = useMemo<BookingGroup[]>(() => {
+    const map = new Map<string, BookingGroup>();
+    for (const b of filtered) {
+      const dateKey = dayjs(b.slot.start_time).format("YYYY-MM-DD");
+      const title = b.slot.title ?? "General";
+      const key = `${title}::${dateKey}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          key,
+          title,
+          description: b.slot.description ?? null,
+          dateKey,
+          bookings: [b],
+        });
+      } else {
+        existing.bookings.push(b);
+      }
+    }
+    const arr = Array.from(map.values());
+    for (const g of arr) {
+      g.bookings.sort((a, b) => (a.slot.start_time < b.slot.start_time ? -1 : 1));
+    }
+    arr.sort((a, b) => (a.dateKey !== b.dateKey ? (a.dateKey < b.dateKey ? -1 : 1) : a.title.localeCompare(b.title)));
+    return arr;
+  }, [filtered]);
+
+  const truncate = (s: string, max = 150) => (s.length > max ? `${s.slice(0, max).trimEnd()}…` : s);
 
   return (
     <Page>
@@ -73,24 +78,98 @@ export function ProfessorBookingsPage() {
           </Button>
         </Space>
       </Flex>
-      <Card>
+      <Card bodyStyle={{ padding: 16 }}>
         <Flex align="center" justify="space-between" wrap gap={12} style={{ marginBottom: 12 }}>
           <Input.Search
-            placeholder="Search student"
+            placeholder="Search student or slot title"
             allowClear
             style={{ width: 280 }}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </Flex>
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={filtered}
-          loading={bookings.state.loading}
-          rowClassName={(row) => (dayjs(row.slot.end_time).isBefore(dayjs()) ? "app-row-past" : "")}
-          locale={{ emptyText: "No bookings yet for your slots." }}
-        />
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          {grouped.length === 0 ? (
+            <Typography.Text type="secondary">No bookings yet for your slots.</Typography.Text>
+          ) : (
+            grouped.map((g) => (
+              <Card key={g.key} size="small" bodyStyle={{ padding: 14 }}>
+                <Flex align="center" justify="space-between" wrap gap={12}>
+                  <div>
+                    <Space align="baseline" wrap size={8}>
+                      <Typography.Title level={4} style={{ margin: 0 }}>
+                        {g.title}
+                      </Typography.Title>
+                      <Tag>{dayjs(g.dateKey).format("ddd, MMM D")}</Tag>
+                      {dayjs(g.dateKey).isBefore(dayjs().format("YYYY-MM-DD")) ? <Tag>Past</Tag> : <Tag color="geekblue">Upcoming</Tag>}
+                    </Space>
+                    {g.description ? (
+                      <Typography.Paragraph type="secondary" style={{ marginTop: 6, marginBottom: 0 }}>
+                        {g.description}
+                      </Typography.Paragraph>
+                    ) : null}
+                  </div>
+                  <Tag color="blue">{g.bookings.length} booking{g.bookings.length === 1 ? "" : "s"}</Tag>
+                </Flex>
+
+                <Divider style={{ margin: "12px 0" }} />
+
+                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                  {g.bookings.map((b) => {
+                    const isPast = dayjs(b.slot.end_time).isBefore(dayjs());
+                    const statusTag =
+                      b.status === "booked" ? (
+                        <Tag color="green">Booked</Tag>
+                      ) : (
+                        <Tag color="blue">Queued{b.queue_position ? ` (#${b.queue_position})` : ""}</Tag>
+                      );
+                    const initials = (formatUserName(b.student, { id: b.student_id })[0] ?? "S").toUpperCase();
+                    return (
+                      <Flex
+                        key={b.id}
+                        align="center"
+                        justify="space-between"
+                        wrap
+                        gap={12}
+                        style={{
+                          padding: "8px 10px",
+                          border: "1px solid rgba(5,5,5,0.06)",
+                          borderRadius: 10,
+                          background: isPast ? "#fafafa" : "#fff",
+                        }}
+                      >
+                        <Space>
+                          <Avatar style={{ background: "#1677ff" }}>{initials}</Avatar>
+                          <div>
+                            <Typography.Text strong>{formatUserName(b.student, { id: b.student_id })}</Typography.Text>
+                            <div>
+                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                {formatRange(b.slot.start_time, b.slot.end_time)}
+                              </Typography.Text>
+                            </div>
+                            {b.description ? (
+                              <div style={{ marginTop: 4 }}>
+                                <Tooltip title={b.description}>
+                                  <Typography.Text type="secondary" style={{ fontSize: 13, fontStyle: "italic" }}>
+                                    {truncate(b.description, 150)}
+                                  </Typography.Text>
+                                </Tooltip>
+                              </div>
+                            ) : null}
+                          </div>
+                        </Space>
+                        <Space>
+                          {isPast ? <Tag>Past</Tag> : <Tag color="geekblue">Upcoming</Tag>}
+                          {statusTag}
+                        </Space>
+                      </Flex>
+                    );
+                  })}
+                </Space>
+              </Card>
+            ))
+          )}
+        </Space>
       </Card>
     </Page>
   );

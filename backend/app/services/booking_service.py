@@ -45,11 +45,14 @@ class BookingService:
             "university_id": booking.university_id,
             "status": booking.status,
             "created_at": to_local(booking.created_at),
+            "description": booking.description,
             "slot": {
                 "professor_id": slot.professor_id,
                 "university_id": slot.university_id,
                 "start_time": to_local(slot.start_time),
                 "end_time": to_local(slot.end_time),
+                "title": slot.title,
+                "description": slot.description,
                 "professor": professor,
             },
             "queue_position": queue_position,
@@ -57,7 +60,7 @@ class BookingService:
         }
 
     @staticmethod
-    def create_booking(*, session: Session, student: User, slot_id: int) -> dict:
+    def create_booking(*, session: Session, student: User, slot_id: int, description: str | None = None) -> dict:
         slot = session.get(Slot, slot_id)
         if not slot:
             raise NotFoundException("Slot not found")
@@ -111,7 +114,7 @@ class BookingService:
                 raise ConflictException("Queue is full for this slot")
             status_value = BookingStatus.queued
 
-        booking = Booking(student_id=student.id, slot_id=slot_id, status=status_value)
+        booking = Booking(student_id=student.id, slot_id=slot_id, status=status_value, description=description)
         booking.university_id = student.university_id
         session.add(booking)
         session.commit()

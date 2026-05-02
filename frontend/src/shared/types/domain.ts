@@ -6,8 +6,13 @@ export type Slot = {
   university_id: number | null;
   start_time: string;
   end_time: string;
+  duration_minutes: number;
+  title: string;
+  description?: string | null;
   is_booked: boolean;
   professor?: UserMini | null;
+  booked_by?: UserMini | null;
+  booking_description?: string | null;
 };
 
 export type BookingStatus = "booked" | "queued";
@@ -19,7 +24,11 @@ export type Booking = {
   university_id: number | null;
   status: BookingStatus;
   created_at: string;
-  slot: Pick<Slot, "professor_id" | "university_id" | "start_time" | "end_time" | "professor">;
+  description?: string | null;
+  slot: Pick<
+    Slot,
+    "professor_id" | "university_id" | "start_time" | "end_time" | "professor" | "title" | "description"
+  >;
   queue_position?: number | null;
   student?: UserMini | null;
 };

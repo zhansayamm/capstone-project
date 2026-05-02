@@ -1,9 +1,10 @@
 from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
 from sqlmodel import Session, select
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 
 from app.models.booking import Booking
+from app.models.enums import BookingStatus
 from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotCreate
@@ -26,17 +27,34 @@ class SlotService:
     @staticmethod
     def _to_read(*, session: Session, slot: Slot) -> dict:
         professor = session.get(User, slot.professor_id)
+        booked_by = None
+        booking_description = None
+        if slot.is_booked:
+            booking = session.exec(
+                select(Booking).where(
+                    Booking.slot_id == slot.id,
+                    Booking.status == BookingStatus.booked,
+                )
+            ).first()
+            if booking:
+                booked_by = session.get(User, booking.student_id)
+                booking_description = booking.description
         return {
             "id": slot.id,
             "professor_id": slot.professor_id,
             "university_id": slot.university_id,
             "start_time": to_local(slot.start_time),
             "end_time": to_local(slot.end_time),
+            "duration_minutes": slot.duration_minutes,
+            "title": slot.title,
+            "description": slot.description,
             "is_booked": slot.is_booked,
             "professor": professor,
+            "booked_by": booked_by,
+            "booking_description": booking_description,
         }
     @staticmethod
-    def create_slot(*, session: Session, professor: User, data: SlotCreate) -> dict:
+    def create_slot(*, session: Session, professor: User, data: SlotCreate) -> list[dict]:
         if data.start_time.tzinfo is None:
             data.start_time = data.start_time.replace(tzinfo=timezone.utc)
         if data.end_time.tzinfo is None:
@@ -67,8 +85,29 @@ class SlotService:
         if data.start_time <= now:
             raise ConflictException("Cannot create a slot in the past")
 
+        # Split requested range into mini-slots (each can be booked by one student)
+        duration = int(getattr(data, "duration_minutes", 30) or 30)
+        title = (getattr(data, "title", None) or "General").strip()
+        description = getattr(data, "description", None)
+        if description is not None:
+            description = description.strip() or None
+        total_seconds = (ensure_utc(data.end_time) - ensure_utc(data.start_time)).total_seconds()
+        if total_seconds <= 0:
+            raise ConflictException("Start time must be before end time")
+        if (total_seconds % (duration * 60)) != 0:
+            raise ConflictException("Time range must be divisible by duration_minutes")
+
+        slots_count = int(total_seconds // (duration * 60))
+        if slots_count <= 0:
+            raise ConflictException("Invalid time range")
+        if slots_count > 100:
+            raise ConflictException("Too many generated slots (max 100). Reduce range or increase duration.")
+
         existing_slots = session.exec(
-            select(Slot).where(Slot.professor_id == professor.id)
+            select(Slot).where(
+                Slot.professor_id == professor.id,
+                Slot.university_id == professor.university_id,
+            )
         ).all()
 
         for slot in existing_slots:
@@ -79,19 +118,33 @@ class SlotService:
             if not (data.end_time <= slot.start_time or data.start_time >= slot.end_time):
                 raise ConflictException("Slot overlaps with existing slot")
 
-        new_slot = Slot(
-            professor_id=professor.id,
-            university_id=professor.university_id,
-            start_time=data.start_time,
-            end_time=data.end_time,
-            is_booked=False,
-        )
+        created: list[Slot] = []
+        current = ensure_utc(data.start_time)
+        end = ensure_utc(data.end_time)
+        step = timedelta(minutes=duration)
+        while current < end:
+            nxt = current + step
+            created.append(
+                Slot(
+                    professor_id=professor.id,
+                    university_id=professor.university_id,
+                    start_time=current,
+                    end_time=nxt,
+                    duration_minutes=duration,
+                    title=title,
+                    description=description,
+                    is_booked=False,
+                )
+            )
+            current = nxt
 
-        session.add(new_slot)
+        session.add_all(created)
         session.commit()
-        session.refresh(new_slot)
-        logger.info("Slot created: id=%s professor_id=%s", new_slot.id, professor.id)
-        return SlotService._to_read(session=session, slot=new_slot)
+        for s in created:
+            session.refresh(s)
+
+        logger.info("Slots created: count=%s professor_id=%s", len(created), professor.id)
+        return [SlotService._to_read(session=session, slot=s) for s in created]
 
     @staticmethod
     def get_all_slots(*, session: Session) -> list[Slot]:

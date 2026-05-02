@@ -4,6 +4,9 @@ import type { Slot } from "../../../shared/types/domain";
 export type CreateSlotRequest = {
   start_time: string;
   end_time: string;
+  duration_minutes?: 15 | 30 | 60;
+  title: string;
+  description?: string | null;
 };
 
 export type ListSlotsParams = {
@@ -25,8 +28,8 @@ export async function getMySlots(): Promise<Slot[]> {
   return res.data;
 }
 
-export async function createSlot(data: CreateSlotRequest): Promise<Slot> {
-  const res = await apiClient.post<Slot>("/slots", data);
+export async function createSlot(data: CreateSlotRequest): Promise<Slot[]> {
+  const res = await apiClient.post<Slot[]>("/slots", data);
   return res.data;
 }
 

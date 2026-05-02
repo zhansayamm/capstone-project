@@ -1,8 +1,14 @@
 import { apiClient } from "../apiClient";
 import type { Booking } from "../../../shared/types/domain";
 
-export async function bookSlot(slot_id: number): Promise<Booking> {
-  const res = await apiClient.post<Booking>("/bookings", { slot_id });
+export type CreateBookingRequest = { slot_id: number; description?: string | null };
+
+export async function bookSlot(slot_id_or_payload: number | CreateBookingRequest, description?: string | null): Promise<Booking> {
+  const payload: CreateBookingRequest =
+    typeof slot_id_or_payload === "number"
+      ? { slot_id: slot_id_or_payload, description: description ?? null }
+      : { slot_id: slot_id_or_payload.slot_id, description: slot_id_or_payload.description ?? null };
+  const res = await apiClient.post<Booking>("/bookings", payload);
   return res.data;
 }
 
