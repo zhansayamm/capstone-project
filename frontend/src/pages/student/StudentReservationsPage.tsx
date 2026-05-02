@@ -40,7 +40,7 @@ export function StudentReservationsPage() {
   const classroomOptions = useMemo(
     () =>
       (classrooms.state.value ?? []).map((c) => ({
-        label: `${c.name}${c.capacity ? ` (cap ${c.capacity})` : ""}`,
+        label: `${c.name} (cap ${c.capacity})`,
         value: c.id,
       })),
     [classrooms.state.value],

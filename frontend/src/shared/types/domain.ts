@@ -28,7 +28,7 @@ export type Classroom = {
   id: number;
   university_id: number | null;
   name: string;
-  capacity: number | null;
+  capacity: number;
 };
 
 export type Reservation = {

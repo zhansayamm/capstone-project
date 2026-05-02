@@ -3,7 +3,7 @@ import type { Classroom } from "../../../shared/types/domain";
 
 export type CreateClassroomRequest = {
   name: string;
-  capacity?: number | null;
+  capacity: number;
 };
 
 export type UpdateClassroomRequest = {

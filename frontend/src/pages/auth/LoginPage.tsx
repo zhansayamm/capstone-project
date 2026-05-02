@@ -1,11 +1,13 @@
 import { Button, Form, Input, Space, Typography, message } from "antd";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 
 import { useAsync } from "../../shared/hooks/useAsync";
 import { CenteredCard } from "../../shared/ui/CenteredCard";
 import { useAuthActions } from "../../features/auth/hooks/useAuthActions";
 import { defaultRouteForRole } from "../../shared/utils/roleRedirect";
+import { useAuthStore } from "../../features/auth/store/useAuthStore";
 
 type LoginForm = { email: string; password: string };
 
@@ -23,12 +25,28 @@ function getApiErrorMessage(err: unknown): string {
 }
 
 export function LoginPage() {
-  const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuthActions();
   const { state, run } = useAsync(login);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const authReady = useAuthStore((s) => s.authReady);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const loading = !hydrated || !authReady;
 
-  const next = params.get("next");
+  useEffect(() => {
+    console.log("USER:", user, "LOADING:", loading, "PATH:", location.pathname);
+  }, [user, loading, location.pathname]);
+
+  /* Already logged in (e.g. stored session): go to role dashboard — do not use `next`. */
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated || !user?.role) return;
+    const target = defaultRouteForRole(user.role);
+    console.log("USER:", user, "LOADING:", loading, "PATH:", location.pathname, "→ redirect", target);
+    navigate(target, { replace: true });
+  }, [loading, isAuthenticated, user, navigate, location.pathname]);
 
   return (
     <CenteredCard title="Sign in to Booking Time">
@@ -39,7 +57,8 @@ export function LoginPage() {
           console.debug("[ui] login submit", values);
           try {
             const me = await run(values);
-            const target = next && next !== "/" ? next : defaultRouteForRole(me.role);
+            const target = defaultRouteForRole(me.role);
+            console.log("USER:", me, "LOADING:", false, "PATH:", location.pathname, "→ redirect", target);
             navigate(target, { replace: true });
           } catch (e: unknown) {
             message.error(getApiErrorMessage(e));

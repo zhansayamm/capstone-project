@@ -110,6 +110,11 @@ export function setupApiClient(authStore: AuthStoreLike) {
         return Promise.reject(err);
       }
 
+      if (status === 409) {
+        showErrorToast("Conflict", apiMessage ?? "This resource already exists or conflicts with existing data.");
+        return Promise.reject(err);
+      }
+
       if (status && status >= 400) {
         showErrorToast("Request failed", apiMessage ?? "Please review your input.");
       }

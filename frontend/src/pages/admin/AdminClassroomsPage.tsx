@@ -12,8 +12,8 @@ import { useAsync } from "../../shared/hooks/useAsync";
 import { Page } from "../../shared/ui/Page";
 import type { Classroom } from "../../shared/types/domain";
 
-type CreateForm = { name: string; capacity?: number | null };
-type EditForm = { name: string; capacity?: number | null };
+type CreateForm = { name: string; capacity: number };
+type EditForm = { name: string; capacity: number };
 
 export function AdminClassroomsPage() {
   const classrooms = useAsync(listClassrooms);
@@ -48,7 +48,7 @@ export function AdminClassroomsPage() {
 
   const columns: ColumnsType<Classroom> = [
     { title: "Name", dataIndex: "name" },
-    { title: "Capacity", dataIndex: "capacity", render: (v) => v ?? "—" },
+    { title: "Capacity", dataIndex: "capacity" },
     {
       title: "",
       key: "actions",
@@ -94,7 +94,7 @@ export function AdminClassroomsPage() {
           layout="inline"
           onFinish={async (values) => {
             const name = values.name.trim();
-            const cap = values.capacity ?? null;
+            const cap = values.capacity as number;
             await create.run({ name, capacity: cap });
             message.success("Classroom created");
             form.resetFields();
@@ -115,8 +115,21 @@ export function AdminClassroomsPage() {
           >
             <Input placeholder="e.g. Room 101" />
           </Form.Item>
-          <Form.Item name="capacity">
-            <InputNumber placeholder="Capacity" min={1} />
+          <Form.Item
+            name="capacity"
+            rules={[
+              { required: true, message: "Enter capacity" },
+              {
+                validator: (_, v) => {
+                  if (typeof v !== "number" || !Number.isFinite(v) || v < 1) {
+                    return Promise.reject(new Error("Capacity must be a positive number"));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <InputNumber placeholder="Capacity" min={1} precision={0} style={{ width: 140 }} />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={create.state.loading}>
@@ -181,7 +194,7 @@ export function AdminClassroomsPage() {
             return;
           }
           const name = values.name.trim();
-          const cap = values.capacity ?? null;
+          const cap = values.capacity as number;
           try {
             await update.run(editTarget.id, { name, capacity: cap });
             message.success("Classroom updated");
@@ -208,8 +221,22 @@ export function AdminClassroomsPage() {
           >
             <Input placeholder="e.g. Room 101" />
           </Form.Item>
-          <Form.Item name="capacity" label="Capacity" rules={[{ required: true, message: "Capacity required" }]}>
-            <InputNumber placeholder="Capacity" min={1} style={{ width: "100%" }} />
+          <Form.Item
+            name="capacity"
+            label="Capacity"
+            rules={[
+              { required: true, message: "Enter capacity" },
+              {
+                validator: (_, v) => {
+                  if (typeof v !== "number" || !Number.isFinite(v) || v < 1) {
+                    return Promise.reject(new Error("Capacity must be a positive number"));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <InputNumber placeholder="Capacity" min={1} precision={0} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
       </Modal>

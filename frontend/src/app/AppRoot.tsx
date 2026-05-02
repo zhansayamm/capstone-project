@@ -1,6 +1,7 @@
 import { RouterProvider } from "react-router-dom";
 import { App as AntApp, ConfigProvider, theme } from "antd";
 
+import { AuthBootstrap } from "./AuthBootstrap";
 import { appRouter } from "./router/appRouter";
 import { useAuthStore } from "../features/auth/store/useAuthStore";
 import { setupApiClient } from "../shared/api";
@@ -21,6 +22,7 @@ export function AppRoot() {
       }}
     >
       <AntApp>
+        <AuthBootstrap />
         <RouterProvider router={appRouter} />
       </AntApp>
     </ConfigProvider>
