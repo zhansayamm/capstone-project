@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import logging
 from sqlalchemy import or_
@@ -20,6 +21,9 @@ from app.tasks.notification_tasks import create_notification_task
 
 logger = logging.getLogger(__name__)
 
+# Institution default: reminders are “1 hour before” in this local wall-clock zone.
+LOCAL_TZ = ZoneInfo("Asia/Almaty")
+
 
 class NotificationService:
     @staticmethod
@@ -27,6 +31,57 @@ class NotificationService:
         if dt.tzinfo is None:
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
+
+    @staticmethod
+    def _reminder_utc_eta(event_start: datetime) -> datetime:
+        """UTC instant when reminder should fire: exactly 1 hour before wall time in LOCAL_TZ."""
+        utc_start = NotificationService._as_utc(event_start)
+        local_start = utc_start.astimezone(LOCAL_TZ)
+        reminder_local = local_start - timedelta(hours=1)
+        return reminder_local.astimezone(timezone.utc)
+
+    @staticmethod
+    def _schedule_reminder_eta(
+        *,
+        user: User,
+        reminder_message: str,
+        email_subject: str,
+        email_body: str,
+        event_start: datetime,
+        context: str,
+    ) -> None:
+        now_utc = datetime.now(timezone.utc)
+        start_utc = NotificationService._as_utc(event_start)
+        if start_utc <= now_utc:
+            logger.info(
+                "Skip reminder: event already started or passed start=%s (UTC) context=%s",
+                start_utc,
+                context,
+            )
+            return
+
+        reminder_utc = NotificationService._reminder_utc_eta(event_start)
+        logger.info(
+            "Reminder scheduled eta=%s (UTC), start=%s (UTC), tz=%s, context=%s",
+            reminder_utc,
+            start_utc,
+            LOCAL_TZ.key,
+            context,
+        )
+
+        if reminder_utc <= now_utc:
+            send_email_task.delay(user.email, email_subject, email_body)
+            create_notification_task.delay(user.id, reminder_message)
+            return
+
+        send_email_task.apply_async(
+            args=[user.email, email_subject, email_body],
+            eta=reminder_utc,
+        )
+        create_notification_task.apply_async(
+            args=[user.id, reminder_message],
+            eta=reminder_utc,
+        )
 
     @staticmethod
     def create_notification(
@@ -80,43 +135,27 @@ class NotificationService:
 
     @staticmethod
     def schedule_booking_reminder(user: User, slot: Slot) -> None:
-        slot_start = NotificationService._as_utc(slot.start_time)
-        delay_seconds = (slot_start - datetime.now(timezone.utc)).total_seconds() - 3600
-
-        if delay_seconds > 0:
-            reminder_message = f"Reminder: your event starts at {slot.start_time}"
-            send_email_task.apply_async(
-                args=[
-                    user.email,
-                    "Reminder",
-                    f"Your booking starts at {slot.start_time}",
-                ],
-                countdown=delay_seconds,
-            )
-            create_notification_task.apply_async(
-                args=[user.id, reminder_message],
-                countdown=delay_seconds,
-            )
+        reminder_message = f"Reminder: your event starts at {slot.start_time}"
+        NotificationService._schedule_reminder_eta(
+            user=user,
+            reminder_message=reminder_message,
+            email_subject="Reminder",
+            email_body=f"Your booking starts at {slot.start_time}",
+            event_start=slot.start_time,
+            context=f"booking user_id={user.id} slot_id={slot.id}",
+        )
 
     @staticmethod
     def schedule_reservation_reminder(user: User, reservation: Reservation, classroom) -> None:
-        reservation_start = NotificationService._as_utc(reservation.start_time)
-        delay_seconds = (reservation_start - datetime.now(timezone.utc)).total_seconds() - 3600
-
-        if delay_seconds > 0:
-            reminder_message = f"Reminder: your event starts at {reservation.start_time}"
-            send_email_task.apply_async(
-                args=[
-                    user.email,
-                    "Reminder",
-                    f"Your reservation in {classroom.name} starts at {reservation.start_time}",
-                ],
-                countdown=delay_seconds,
-            )
-            create_notification_task.apply_async(
-                args=[user.id, reminder_message],
-                countdown=delay_seconds,
-            )
+        reminder_message = f"Reminder: your event starts at {reservation.start_time}"
+        NotificationService._schedule_reminder_eta(
+            user=user,
+            reminder_message=reminder_message,
+            email_subject="Reminder",
+            email_body=f"Your reservation in {classroom.name} starts at {reservation.start_time}",
+            event_start=reservation.start_time,
+            context=f"reservation user_id={user.id} reservation_id={reservation.id}",
+        )
 
     @staticmethod
     def get_user_notifications(session: Session, user: User) -> list[Notification]:

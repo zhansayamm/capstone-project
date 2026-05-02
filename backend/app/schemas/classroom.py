@@ -25,3 +25,17 @@ class ClassroomRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ClassroomUpdate(BaseModel):
+    name: str | None = None
+    capacity: int | None = None
+
+    @field_validator("capacity")
+    @classmethod
+    def validate_capacity(cls, v: int | None) -> int | None:
+        if v is None:
+            return v
+        if v <= 0:
+            raise ValueError("Classroom capacity must be greater than 0")
+        return v

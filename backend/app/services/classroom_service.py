@@ -4,7 +4,7 @@ from app.core.exceptions import ConflictException, ForbiddenException, NotFoundE
 from app.models.classroom import Classroom
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.schemas.classroom import ClassroomCreate
+from app.schemas.classroom import ClassroomCreate, ClassroomUpdate
 
 
 class ClassroomService:
@@ -26,6 +26,38 @@ class ClassroomService:
         if university_id is not None:
             query = query.where(Classroom.university_id == university_id)
         return session.exec(query).all()
+
+    @staticmethod
+    def update_classroom(
+        *,
+        session: Session,
+        admin: User,
+        classroom_id: int,
+        data: ClassroomUpdate,
+    ) -> Classroom:
+        classroom = session.get(Classroom, classroom_id)
+        if not classroom:
+            raise NotFoundException("Classroom not found")
+        if classroom.university_id != admin.university_id:
+            raise ForbiddenException("You cannot modify classrooms from another university")
+
+        if data.name is None and data.capacity is None:
+            raise ConflictException("No fields to update")
+
+        if data.name is not None:
+            name = data.name.strip() if isinstance(data.name, str) else data.name
+            if not name:
+                raise ConflictException("Classroom name cannot be empty")
+            classroom.name = name
+        if data.capacity is not None:
+            if data.capacity <= 0:
+                raise ConflictException("Capacity must be greater than 0")
+            classroom.capacity = data.capacity
+
+        session.add(classroom)
+        session.commit()
+        session.refresh(classroom)
+        return classroom
 
     @staticmethod
     def delete_classroom(*, session: Session, admin: User, classroom_id: int) -> None:
