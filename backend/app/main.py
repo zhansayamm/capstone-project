@@ -32,6 +32,7 @@ from app.core.config import (
     validate_cors_credentials_safe,
     validate_production_secrets,
 )
+from app.core.security import PASSWORD_HASH_BACKEND
 from app.core.startup_checks import log_schema_bootstrap, probe_database
 from app.core.exceptions import AppException
 from app.core.limiter import limiter
@@ -174,6 +175,7 @@ def generic_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 def on_startup():
+    logger.info("password_hash_backend=%s", PASSWORD_HASH_BACKEND)
     validate_production_secrets()
     probe_database(engine)
     if settings.SKIP_DB_CREATE_ALL:

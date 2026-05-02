@@ -8,6 +8,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Bump when auth storage changes (logged at startup so deploy logs prove which code is running).
+PASSWORD_HASH_BACKEND = "bcrypt-native-v2"
+
 # Native bcrypt only — passlib is removed to avoid bcrypt backend init (detect_wrap_bug) and 72-byte crashes.
 
 

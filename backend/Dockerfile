@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && (pip show passlib >/dev/null 2>&1 && (echo "ERROR: passlib must not be installed (causes bcrypt 72-byte init crashes). Remove it from requirements." && exit 1) || true)
 
 COPY . .
 

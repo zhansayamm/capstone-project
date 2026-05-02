@@ -59,3 +59,12 @@
 ## Frontend (Vercel)
 
 Set your real Vercel app URL in `CORS_ORIGINS` (and keep `http://localhost:5173` for local dev if desired).
+
+## Troubleshooting: `passlib` / `pwd_context.verify` / 72-byte bcrypt errors
+
+If logs show **`security.py` line ~15** with **`pwd_context.verify`** or **`passlib/handlers/bcrypt`**, the running container is **not** built from the current repo: auth uses **native `bcrypt` only** now.
+
+1. Confirm GitHub has the latest commit (no `passlib` in `backend/requirements.txt`, no `pwd_context` in `backend/app/core/security.py`).
+2. In Railway: **Redeploy** the service and, if needed, **clear build cache** / force a fresh Docker build.
+3. Ensure **Root Directory** is `backend` so Railway uses this **`Dockerfile`** (the image fails the build if `passlib` is accidentally installed).
+4. After a successful deploy, **startup logs** must include: **`password_hash_backend=bcrypt-native-v2`**. If that line is missing, the new image is not running.
