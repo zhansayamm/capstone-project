@@ -12,21 +12,21 @@ pwd_context = CryptContext(
     deprecated="auto",
 )
 
-# bcrypt supports max 72 bytes → truncate for compatibility
 
-
-def _truncate_password_bcrypt(password: str) -> str:
+def normalize_password(password: str) -> str:
+    # bcrypt supports max 72 bytes
     return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
 
 
 def hash_password(password: str) -> str:
-    password = _truncate_password_bcrypt(password)
+    password = normalize_password(password)
+    logger.debug("Normalized password length: %s", len(password))
     return pwd_context.hash(password)
 
 
 def verify_password(password: str, hash: str) -> bool:  # noqa: A002
-    password = _truncate_password_bcrypt(password)
-    logger.debug("verify_password: password_byte_len=%s", len(password.encode("utf-8")))
+    password = normalize_password(password)
+    logger.debug("Normalized password length: %s", len(password))
     return pwd_context.verify(password, hash)
 
 
