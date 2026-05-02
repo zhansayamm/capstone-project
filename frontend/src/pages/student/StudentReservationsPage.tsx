@@ -1,10 +1,28 @@
-import { Button, Card, DatePicker, Flex, Form, Input, Select, Space, Table, Tag, Typography, message } from "antd";
+import {
+  Button,
+  Card,
+  DatePicker,
+  Flex,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 import type { Dayjs } from "dayjs";
 
 import { listClassrooms } from "../../features/classrooms/api/classroomApi";
-import { createReservation, listMyReservations } from "../../features/reservations/api/reservationApi";
+import {
+  cancelReservation,
+  createReservation,
+  listMyReservations,
+} from "../../features/reservations/api/reservationApi";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { debugError, debugLog } from "../../shared/utils/debug";
 import { formatRange } from "../../shared/utils/dateDisplay";
@@ -26,7 +44,9 @@ export function StudentReservationsPage() {
   const classrooms = useAsync(listClassrooms);
   const reservations = useAsync(listMyReservations);
   const create = useAsync(createReservation);
+  const cancel = useAsync(cancelReservation);
   const [q, setQ] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
   const [form] = Form.useForm<CreateForm>();
   const start = Form.useWatch("start", form);
   const computedEnd = useMemo(() => (start ? start.add(1, "hour") : null), [start]);
@@ -46,6 +66,8 @@ export function StudentReservationsPage() {
     [classrooms.state.value],
   );
 
+  const canCancelReservation = (r: Reservation) => dayjs(r.start_time).isAfter(dayjs());
+
   const columns: ColumnsType<Reservation> = [
     { title: "Classroom", dataIndex: "classroom_name" },
     {
@@ -64,6 +86,17 @@ export function StudentReservationsPage() {
       },
     },
     { title: "Created", dataIndex: "created_at", render: (v) => dayjsToAppTz(v).fromNow() },
+    {
+      title: "",
+      key: "actions",
+      width: 120,
+      render: (_, r) =>
+        canCancelReservation(r) ? (
+          <Button danger type="link" disabled={cancel.state.loading} onClick={() => setCancelTarget(r)}>
+            Cancel
+          </Button>
+        ) : null,
+    },
   ];
 
   const filtered = useMemo(() => {
@@ -222,6 +255,30 @@ export function StudentReservationsPage() {
           rowClassName={(row) => (dayjs(row.end_time).isBefore(dayjs()) ? "app-row-past" : "")}
         />
       </Card>
+
+      <Modal
+        title="Cancel reservation"
+        open={!!cancelTarget}
+        okText="Confirm"
+        cancelText="Cancel"
+        okButtonProps={{ danger: true, loading: cancel.state.loading }}
+        onCancel={() => setCancelTarget(null)}
+        onOk={async () => {
+          if (!cancelTarget) return;
+          try {
+            await cancel.run(cancelTarget.id);
+            message.success("Reservation cancelled");
+            setCancelTarget(null);
+            await reservations.run({ limit: 50, upcoming: false });
+          } catch {
+            message.error("Could not cancel reservation");
+          }
+        }}
+      >
+        <Typography.Paragraph style={{ marginBottom: 0 }}>
+          Are you sure you want to cancel this reservation?
+        </Typography.Paragraph>
+      </Modal>
     </Page>
   );
 }

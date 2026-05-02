@@ -52,3 +52,14 @@ def get_all_reservations(
         user_id=user_id,
         upcoming=upcoming,
     )
+
+
+@router.delete("/{reservation_id}")
+@limiter.limit("10/minute;60/hour")
+def cancel_reservation(
+    request: Request,
+    reservation_id: int,
+    current_user=Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return ReservationService.cancel_reservation(session=session, reservation_id=reservation_id, user=current_user)

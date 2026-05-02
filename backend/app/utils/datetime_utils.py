@@ -21,17 +21,26 @@ def to_local(dt: datetime) -> datetime:
     return ensure_utc(dt).astimezone(LOCAL_TZ)
 
 
+def local_clock_times(start: datetime, end: datetime) -> tuple[datetime, datetime, time, time]:
+    """
+    Local wall times for business rules, with microseconds cleared so that
+    end exactly at 17:30:00.xxx does not spuriously exceed time(17, 30).
+    """
+    s_local = to_local(start)
+    e_local = to_local(end)
+    s_clock = s_local.time().replace(microsecond=0)
+    e_clock = e_local.time().replace(microsecond=0)
+    return s_local, e_local, s_clock, e_clock
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
 def is_within_business_hours(start: datetime, end: datetime) -> bool:
-    """True if start/end are on same LOCAL date and within 08:30–17:30 LOCAL."""
-    s = to_local(start)
-    e = to_local(end)
-    if s.date() != e.date():
+    """True if start/end are on same LOCAL date and within 08:30–17:30 LOCAL (inclusive)."""
+    s_local, e_local, s_clock, e_clock = local_clock_times(start, end)
+    if s_local.date() != e_local.date():
         return False
-    s_time = s.time().replace(tzinfo=None)
-    e_time = e.time().replace(tzinfo=None)
-    return BUSINESS_START_LOCAL <= s_time and e_time <= BUSINESS_END_LOCAL
+    return BUSINESS_START_LOCAL <= s_clock and e_clock <= BUSINESS_END_LOCAL
 

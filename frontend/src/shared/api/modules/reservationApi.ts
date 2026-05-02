@@ -28,6 +28,11 @@ export async function getReservations(params?: {
   return res.data;
 }
 
+export async function cancelReservation(reservationId: number): Promise<{ message: string }> {
+  const res = await apiClient.delete<{ message: string }>(`/reservations/${reservationId}`);
+  return res.data;
+}
+
 // Backwards-compatible aliases
 export const listMyReservations = getMyReservations;
 export const listAllReservations = getReservations;

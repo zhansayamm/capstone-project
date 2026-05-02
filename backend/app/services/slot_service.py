@@ -7,10 +7,19 @@ from app.models.booking import Booking
 from app.models.slot import Slot
 from app.models.user import User
 from app.schemas.slot import SlotCreate
-from app.utils.datetime_utils import BUSINESS_END_LOCAL, BUSINESS_START_LOCAL, ensure_utc, is_within_business_hours, to_local
+from app.utils.datetime_utils import (
+    BUSINESS_END_LOCAL,
+    BUSINESS_START_LOCAL,
+    ensure_utc,
+    local_clock_times,
+    to_local,
+)
 
 
 logger = logging.getLogger(__name__)
+
+WORK_START = BUSINESS_START_LOCAL
+WORK_END = BUSINESS_END_LOCAL
 
 
 class SlotService:
@@ -36,17 +45,23 @@ class SlotService:
         if data.start_time >= data.end_time:
             raise ConflictException("Start time must be before end time")
 
-        local_start = to_local(data.start_time)
-        local_end = to_local(data.end_time)
-        s_time = local_start.time().replace(tzinfo=None)
-        e_time = local_end.time().replace(tzinfo=None)
-        if s_time < BUSINESS_START_LOCAL:
-            raise ConflictException("Slots cannot start before 08:30")
-        if e_time > BUSINESS_END_LOCAL:
-            raise ConflictException("Slots must end before 17:30")
+        local_start, local_end, s_clock, e_clock = local_clock_times(data.start_time, data.end_time)
+        logger.info(
+            "create_slot: local Start: %s, End: %s (dates %s → %s)",
+            s_clock,
+            e_clock,
+            local_start.date(),
+            local_end.date(),
+        )
 
-        if not is_within_business_hours(data.start_time, data.end_time):
+        if local_start.date() != local_end.date():
             raise ConflictException("Slots must be within 08:30–17:30 on the same day")
+
+        if s_clock < WORK_START:
+            raise ConflictException("Slots cannot start before 08:30")
+
+        if e_clock > WORK_END:
+            raise ConflictException("Slots must end by 17:30")
 
         now = datetime.now(timezone.utc)
         if data.start_time <= now:

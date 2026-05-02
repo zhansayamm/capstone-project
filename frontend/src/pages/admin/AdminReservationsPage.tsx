@@ -1,10 +1,10 @@
-import { Button, Card, Flex, Input, Select, Space, Switch, Table, Typography } from "antd";
+import { Button, Card, Flex, Input, Modal, Select, Space, Switch, Table, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 
-import { listAllReservations } from "../../features/reservations/api/reservationApi";
+import { cancelReservation, listAllReservations } from "../../features/reservations/api/reservationApi";
 import { useAsync } from "../../shared/hooks/useAsync";
-import { dayjsToAppTz } from "../../shared/utils/dayjs";
+import { dayjs, dayjsToAppTz } from "../../shared/utils/dayjs";
 import { formatRange } from "../../shared/utils/dateDisplay";
 import { formatUserName } from "../../shared/utils/userDisplay";
 import { Page } from "../../shared/ui/Page";
@@ -12,10 +12,12 @@ import type { Reservation } from "../../shared/types/domain";
 
 export function AdminReservationsPage() {
   const reservations = useAsync(listAllReservations);
+  const cancel = useAsync(cancelReservation);
   const [upcoming, setUpcoming] = useState(false);
   const [classroomId, setClassroomId] = useState<number | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [q, setQ] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
 
   useEffect(() => {
     reservations.run({ limit: 100, upcoming, classroom_id: classroomId ?? undefined, user_id: userId ?? undefined });
@@ -36,6 +38,8 @@ export function AdminReservationsPage() {
       return true;
     });
   }, [classroomId, q, reservations.state.value, userId]);
+
+  const canCancelReservation = (r: Reservation) => dayjs(r.start_time).isAfter(dayjs());
 
   const classroomOptions = useMemo(() => {
     const items = reservations.state.value ?? [];
@@ -70,6 +74,17 @@ export function AdminReservationsPage() {
       render: (_, r) => formatRange(r.start_time, r.end_time),
     },
     { title: "Created", dataIndex: "created_at", render: (v) => dayjsToAppTz(v).fromNow() },
+    {
+      title: "",
+      key: "actions",
+      width: 120,
+      render: (_, r) =>
+        canCancelReservation(r) ? (
+          <Button danger type="link" disabled={cancel.state.loading} onClick={() => setCancelTarget(r)}>
+            Cancel
+          </Button>
+        ) : null,
+    },
   ];
 
   return (
@@ -135,6 +150,35 @@ export function AdminReservationsPage() {
           locale={{ emptyText: "No reservations match your filters." }}
         />
       </Card>
+
+      <Modal
+        title="Cancel reservation"
+        open={!!cancelTarget}
+        okText="Confirm"
+        cancelText="Cancel"
+        okButtonProps={{ danger: true, loading: cancel.state.loading }}
+        onCancel={() => setCancelTarget(null)}
+        onOk={async () => {
+          if (!cancelTarget) return;
+          try {
+            await cancel.run(cancelTarget.id);
+            message.success("Reservation cancelled");
+            setCancelTarget(null);
+            await reservations.run({
+              limit: 100,
+              upcoming,
+              classroom_id: classroomId ?? undefined,
+              user_id: userId ?? undefined,
+            });
+          } catch {
+            message.error("Could not cancel reservation");
+          }
+        }}
+      >
+        <Typography.Paragraph style={{ marginBottom: 0 }}>
+          Are you sure you want to cancel this reservation?
+        </Typography.Paragraph>
+      </Modal>
     </Page>
   );
 }

@@ -134,6 +134,14 @@ class NotificationService:
         )
 
     @staticmethod
+    def reservation_cancelled_email(owner: User, *, classroom_name: str, start_time) -> None:
+        send_email_task.delay(
+            owner.email,
+            "Reservation Cancelled",
+            f"Your reservation for classroom {classroom_name} starting at {start_time} was cancelled.",
+        )
+
+    @staticmethod
     def schedule_booking_reminder(user: User, slot: Slot) -> None:
         reminder_message = f"Reminder: your event starts at {slot.start_time}"
         NotificationService._schedule_reminder_eta(

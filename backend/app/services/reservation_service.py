@@ -4,13 +4,24 @@ from datetime import datetime, timezone
 import logging
 
 from app.models.classroom import Classroom
+from app.models.enums import UserRole
 from app.models.reservation import Reservation
 from app.models.user import User
 from app.schemas.reservation import ReservationCreate
 from app.services.notification_service import NotificationService
-from app.utils.datetime_utils import BUSINESS_END_LOCAL, BUSINESS_START_LOCAL, ensure_utc, is_within_business_hours, to_local
+from app.utils.datetime_utils import (
+    BUSINESS_END_LOCAL,
+    BUSINESS_START_LOCAL,
+    ensure_utc,
+    local_clock_times,
+    to_local,
+)
 
 logger = logging.getLogger(__name__)
+
+WORK_START = BUSINESS_START_LOCAL
+WORK_END = BUSINESS_END_LOCAL
+
 
 class ReservationService:
     @staticmethod
@@ -57,18 +68,23 @@ class ReservationService:
             logger.info("create_reservation: invalid duration_seconds=%s", duration_seconds)
             raise ConflictException("Reservation must be exactly 1 hour")
 
-        local_start = to_local(data.start_time)
-        local_end = to_local(data.end_time)
-        s_time = local_start.time().replace(tzinfo=None)
-        e_time = local_end.time().replace(tzinfo=None)
-        if s_time < BUSINESS_START_LOCAL:
-            raise ConflictException("Reservations cannot start before 08:30")
-        if e_time > BUSINESS_END_LOCAL:
-            raise ConflictException("Reservations must end before 17:30")
+        local_start, local_end, s_clock, e_clock = local_clock_times(data.start_time, data.end_time)
+        logger.info(
+            "create_reservation: local Start: %s, End: %s (dates %s → %s)",
+            s_clock,
+            e_clock,
+            local_start.date(),
+            local_end.date(),
+        )
 
-        if not is_within_business_hours(data.start_time, data.end_time):
-            logger.info("create_reservation: outside business hours")
+        if local_start.date() != local_end.date():
             raise ConflictException("Reservations must be within 08:30–17:30 on the same day")
+
+        if s_clock < WORK_START:
+            raise ConflictException("Reservations cannot start before 08:30")
+
+        if e_clock > WORK_END:
+            raise ConflictException("Reservations must end by 17:30")
 
         now = datetime.now(timezone.utc)
         if data.start_time <= now:
@@ -147,6 +163,53 @@ class ReservationService:
             query = query.where(Reservation.start_time > datetime.now(timezone.utc))
         rows = session.exec(query.offset(offset).limit(limit)).all()
         return [ReservationService._to_read(session=session, reservation=r, classroom=c) for r, c in rows]
+
+    @staticmethod
+    def cancel_reservation(*, session: Session, reservation_id: int, user: User) -> dict:
+        reservation = session.get(Reservation, reservation_id)
+        if not reservation:
+            raise NotFoundException("Reservation not found")
+
+        if reservation.university_id != user.university_id:
+            raise ForbiddenException("You cannot cancel this reservation")
+
+        if reservation.user_id != user.id and user.role != UserRole.admin:
+            raise ForbiddenException("You cannot cancel this reservation")
+
+        now = datetime.now(timezone.utc)
+        start_utc = ensure_utc(reservation.start_time)
+        if start_utc <= now:
+            raise ConflictException("Cannot cancel past reservation")
+
+        classroom = session.get(Classroom, reservation.classroom_id)
+        classroom_name = classroom.name if classroom else str(reservation.classroom_id)
+        owner = session.get(User, reservation.user_id)
+        start_snapshot = reservation.start_time
+
+        logger.info(
+            "cancel_reservation: id=%s by_user_id=%s owner_id=%s",
+            reservation.id,
+            user.id,
+            reservation.user_id,
+        )
+
+        session.delete(reservation)
+        session.commit()
+
+        if owner:
+            NotificationService.create_notification(
+                session,
+                owner,
+                f"Reservation for classroom {classroom_name} was cancelled",
+                subject="Reservation Cancelled",
+            )
+            NotificationService.reservation_cancelled_email(
+                owner,
+                classroom_name=classroom_name,
+                start_time=start_snapshot,
+            )
+
+        return {"message": "Reservation cancelled successfully"}
 
     @staticmethod
     def get_all_reservations(
