@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -11,6 +13,8 @@ from app.tasks.image_tasks import compress_image_task
 
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 MAX_FILE_BYTES = 5 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png"}
@@ -30,13 +34,27 @@ async def upload_image(
         raise HTTPException(status_code=413, detail="File too large (max 5MB)")
 
     filename = file.filename or "upload"
-    task = compress_image_task.delay(image_bytes, filename)
+    try:
+        task = compress_image_task.delay(image_bytes, filename)
+    except Exception:
+        logger.exception("Celery enqueue failed — broker/back-end may be unavailable (set REDIS_URL and run workers)")
+        raise HTTPException(
+            status_code=503,
+            detail="Background image processing is unavailable (Redis/Celery not reachable). Configure REDIS_URL or try again later.",
+        ) from None
     return {"message": "Image is being processed", "task_id": task.id}
 
 
 @router.get("/tasks/{task_id}")
 def get_image_task(task_id: str):
-    result = celery_app.AsyncResult(task_id)
+    try:
+        result = celery_app.AsyncResult(task_id)
+    except Exception:
+        logger.exception("Celery result backend unreachable for task_id=%s", task_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot read task status; Redis/Celery backend unavailable.",
+        ) from None
     if result.state == "PENDING":
         return {"status": "PENDING"}
     if result.state == "STARTED":

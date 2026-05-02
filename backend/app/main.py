@@ -1,40 +1,60 @@
+import os
 import time
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import logging
 from slowapi.errors import RateLimitExceeded
+from sqlmodel import SQLModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-import logging
-from sqlmodel import SQLModel
+
+from app.api import (
+    admin,
+    auth,
+    bookings,
+    calendar,
+    classrooms,
+    images,
+    notifications,
+    reservations,
+    slots,
+    universities,
+    users,
+)
+from app.core.config import (
+    get_cors_origins,
+    is_production,
+    settings,
+    validate_cors_credentials_safe,
+    validate_production_secrets,
+)
+from app.core.startup_checks import log_schema_bootstrap, probe_database
+from app.core.exceptions import AppException
+from app.core.limiter import limiter
 from app.db import engine
 
 from app.models import *
-
-from app.api import auth, slots, bookings, classrooms, reservations, admin, universities, calendar, notifications, images, users
-from app.core.exceptions import AppException
-from app.core.limiter import limiter
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("booking-system")
 
-# Production safety: keep profiling disabled by default because it adds overhead.
-# Enable temporarily for debugging specific endpoints.
-ENABLE_PROFILING = False
-
 app = FastAPI(
     title="Booking Time API",
     description="University booking system (office hours + classrooms)",
-    version="1.0.0"
+    version="1.0.0",
 )
+
+_cors_origins = get_cors_origins()
+validate_cors_credentials_safe(_cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
@@ -62,20 +82,6 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     start_time = time.time()
-    profiler = None
-
-    # Latency thresholds (ms) for classification:
-    # - FAST: <100ms
-    # - MEDIUM: 100-499ms
-    # - SLOW: >=500ms
-    # These are meant to quickly surface slow endpoints without heavy tracing.
-    if ENABLE_PROFILING:
-        # Profiling adds overhead; only use it when debugging.
-        # Turn ENABLE_PROFILING=True temporarily and restart the server.
-        from pyinstrument import Profiler
-
-        profiler = Profiler()
-        profiler.start()
 
     client_host = getattr(request.client, "host", None) if request.client else None
     client_port = getattr(request.client, "port", None) if request.client else None
@@ -93,11 +99,6 @@ async def request_logging_middleware(request: Request, call_next):
         status_code = 500
         raise
     finally:
-        if profiler is not None:
-            profiler.stop()
-            # Pyinstrument emits a large tree; stdout color is suppressed for logs.
-            logger.info("Pyinstrument profile:\n%s", profiler.output_text(unicode=True, color=False))
-
         process_time_ms = int((time.time() - start_time) * 1000)
         if process_time_ms < 100:
             latency_level = "FAST"
@@ -117,9 +118,6 @@ async def request_logging_middleware(request: Request, call_next):
             "client": client,
         }
 
-        # Detect slow endpoints:
-        # - if request is slow (>500ms) log with WARNING
-        # - if it is also a server error (>=500) log with ERROR
         if latency_level == "SLOW":
             payload["message"] = "Slow endpoint detected"
             logger.warning(payload)
@@ -158,9 +156,39 @@ def validation_exception_handler(request: Request, exc: RequestValidationError):
     )
 
 
+@app.exception_handler(Exception)
+def generic_exception_handler(request: Request, exc: Exception):
+    """Avoid returning raw tracebacks over HTTP."""
+    logger.exception("Unhandled exception: %s %s", request.method, request.url.path)
+    payload: dict[str, object] = {
+        "error": "InternalServerError",
+        "message": "An unexpected error occurred.",
+    }
+    if (
+        os.getenv("SHOW_ERROR_DETAILS", "").strip().lower() in ("1", "true", "yes")
+        and not is_production()
+    ):
+        payload["detail"] = str(exc)
+    return JSONResponse(status_code=500, content=payload)
+
+
 @app.on_event("startup")
 def on_startup():
-    SQLModel.metadata.create_all(engine)
+    validate_production_secrets()
+    probe_database(engine)
+    if settings.SKIP_DB_CREATE_ALL:
+        log_schema_bootstrap(True)
+        return
+    try:
+        SQLModel.metadata.create_all(engine)
+        log_schema_bootstrap(False)
+    except Exception as exc:
+        logger.exception("SQLModel.metadata.create_all failed")
+        raise RuntimeError(
+            "Database schema bootstrap failed during create_all. "
+            "Check model definitions versus existing DB migrations or set SKIP_DB_CREATE_ALL if schemas are migrated elsewhere."
+        ) from exc
+
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(slots.router, prefix="/slots", tags=["Slots"])
@@ -179,19 +207,15 @@ app.include_router(
 app.include_router(images.router, prefix="/images", tags=["Images"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 
+
 @app.get("/")
 def root():
     return {
         "message": "Booking Time API is running",
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/info")
-def info():
-    return {"app": "Booking System", "version": "1.0.0"}
