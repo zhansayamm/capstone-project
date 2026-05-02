@@ -1,29 +1,29 @@
+import logging
+
 from jose import jwt
-import bcrypt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# Native bcrypt (avoid passlib + bcrypt 5.x incompatibility: missing __about__.__version__)
+logger = logging.getLogger(__name__)
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+)
 
 
 def hash_password(password: str) -> str:
     # bcrypt only uses the first 72 bytes/characters of the password.
     if len(password) > 72:
         raise ValueError("Password too long (max 72 characters)")
-    hashed = bcrypt.hashpw(password.encode("utf-8")[:72], bcrypt.gensalt(rounds=12))
-    return hashed.decode("ascii")
+    return pwd_context.hash(password[:72])
 
 
-def verify_password(plain_password: str, password_hash: str) -> bool:
-    if not plain_password or not password_hash:
-        return False
-    try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8")[:72],
-            password_hash.encode("utf-8"),
-        )
-    except (ValueError, TypeError):
-        return False
+def verify_password(password: str, password_hash: str) -> bool:
+    password = password[:72]
+    logger.debug("verify_password: password_len=%s", len(password))
+    return pwd_context.verify(password, password_hash)
 
 
 def create_token(data: dict):
