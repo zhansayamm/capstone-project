@@ -1,17 +1,14 @@
 import hashlib
 import logging
 
+import bcrypt
 from jose import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
+# SHA256 hex (64 ASCII chars) → bcrypt input always < 72 bytes; no passlib bcrypt backend (avoids init bugs).
 
 
 def normalize_password(password: str) -> str:
@@ -22,13 +19,21 @@ def normalize_password(password: str) -> str:
 def hash_password(password: str) -> str:
     normalized = normalize_password(password)
     logger.debug("Normalized password length: %s", len(normalized))
-    return pwd_context.hash(normalized)
+    digest = normalized.encode("ascii")
+    hashed = bcrypt.hashpw(digest, bcrypt.gensalt(rounds=12))
+    return hashed.decode("ascii")
 
 
 def verify_password(password: str, hash: str) -> bool:  # noqa: A002
+    if not hash:
+        return False
     normalized = normalize_password(password)
     logger.debug("Normalized password length: %s", len(normalized))
-    return pwd_context.verify(normalized, hash)
+    digest = normalized.encode("ascii")
+    try:
+        return bcrypt.checkpw(digest, hash.encode("ascii"))
+    except (ValueError, TypeError):
+        return False
 
 
 def create_token(data: dict):
