@@ -2,6 +2,7 @@ import { Avatar, Button, Layout, Tag, Typography } from "antd";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { API_URL } from "../config/api";
 import { useAuthStore } from "../features/auth/store/useAuthStore";
 import { NotificationsDropdown } from "./notifications/NotificationsDropdown";
 
@@ -23,7 +24,7 @@ export function AppTopbar() {
     return full || user?.email || "User";
   }, [user?.email, user?.first_name, user?.last_name]);
 
-  const avatarSrc = user?.avatar_image_id ? `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/images/${user.avatar_image_id}` : undefined;
+  const avatarSrc = user?.avatar_image_id ? `${String(API_URL || "http://localhost:8000")}/images/${user.avatar_image_id}` : undefined;
   const initials = useMemo(() => {
     const fn = user?.first_name?.trim()?.[0] ?? "";
     const ln = user?.last_name?.trim()?.[0] ?? "";

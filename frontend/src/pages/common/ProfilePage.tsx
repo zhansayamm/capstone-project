@@ -8,6 +8,7 @@ import { useAuthStore } from "../../features/auth/store/useAuthStore";
 import { listUniversities, requestPasswordReset } from "../../shared/api/modules/authApi";
 import { getImageTask, uploadImage } from "../../shared/api/modules/imageApi";
 import { setMyAvatar } from "../../shared/api/modules/userApi";
+import { API_URL } from "../../config/api";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { debugError, debugLog } from "../../shared/utils/debug";
 import { Page } from "../../shared/ui/Page";
@@ -49,7 +50,7 @@ export function ProfilePage() {
     return (user?.email?.[0] ?? "U").toUpperCase();
   }, [user?.email, user?.first_name, user?.last_name]);
 
-  const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+  const baseUrl = String(API_URL || "http://localhost:8000");
   const avatarSrc = user?.avatar_image_id ? `${baseUrl}/images/${user.avatar_image_id}` : undefined;
 
   const universityName = useMemo(() => {

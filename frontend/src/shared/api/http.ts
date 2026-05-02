@@ -1,6 +1,7 @@
-import axios, { AxiosError, type AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosHeaders, type AxiosInstance } from "axios";
 import { notification } from "antd";
 
+import { API_URL } from "../../config/api";
 import { isJwtExpired } from "../utils/jwt";
 
 type AuthStoreLike = {
@@ -14,8 +15,9 @@ let configured = false;
 let authStoreRef: AuthStoreLike | null = null;
 
 export const http: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8000",
+  baseURL: String(API_URL || "http://localhost:8000"),
   timeout: 25_000,
+  withCredentials: true,
 });
 
 type ApiErrorResponse = {
@@ -54,8 +56,9 @@ export function setupHttpInterceptors(authStore: AuthStoreLike) {
         redirectToLogin();
         return config;
       }
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
+      const headers = AxiosHeaders.from(config.headers ?? {});
+      headers.set("Authorization", `Bearer ${token}`);
+      config.headers = headers;
     }
     return config;
   });
