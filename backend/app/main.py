@@ -109,8 +109,12 @@ async def request_logging_middleware(request: Request, call_next):
             logger.info(payload)
 
     return response
-
     
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"],
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -119,10 +123,7 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"],
-)
+
 
 
 app.state.limiter = limiter
