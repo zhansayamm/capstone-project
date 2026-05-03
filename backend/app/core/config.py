@@ -52,7 +52,7 @@ def get_database_url() -> str:
 def get_cors_origins() -> List[str]:
     default = (
         "http://localhost:5173,http://127.0.0.1:5173,"
-        "https://capstone-project-jzeh7thqd-aisha-s-projects1.vercel.app"
+        "https://your-frontend.vercel.app"
     )
     raw = (os.getenv("CORS_ORIGINS") or default).strip()
     return [o.strip() for o in raw.split(",") if o.strip()]
