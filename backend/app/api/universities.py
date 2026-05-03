@@ -7,7 +7,7 @@ from app.schemas.university import UniversityCreate, UniversityRead
 from app.services.university_service import UniversityService
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("", response_model=list[UniversityRead])

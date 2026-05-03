@@ -9,7 +9,7 @@ from app.services.reservation_service import ReservationService
 from app.core.limiter import limiter
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.post("", response_model=ReservationRead)
 @limiter.limit("10/minute;120/hour")

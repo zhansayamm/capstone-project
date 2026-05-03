@@ -11,7 +11,7 @@ from app.services.booking_message_service import BookingMessageService
 from app.core.limiter import limiter
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.get("", response_model=List[BookingRead])
 def list_bookings(

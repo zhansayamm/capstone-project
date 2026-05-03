@@ -6,7 +6,7 @@ from app.core.deps import require_admin
 from app.services.admin_service import AdminService
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.get("/stats")
 def get_stats(

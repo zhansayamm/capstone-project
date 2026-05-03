@@ -8,7 +8,7 @@ from app.schemas.notification import NotificationRead
 from app.services.notification_service import NotificationService
 from app.utils.datetime_utils import to_local
 
-notification_router = APIRouter()
+notification_router = APIRouter(redirect_slashes=False)
 
 
 @notification_router.get("/me", response_model=list[NotificationRead])

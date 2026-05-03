@@ -7,7 +7,7 @@ from app.schemas.classroom import ClassroomCreate, ClassroomRead, ClassroomUpdat
 from app.core.deps import get_optional_user, require_admin
 from app.services.classroom_service import ClassroomService
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.post("", response_model=ClassroomRead)
 def create_classroom(

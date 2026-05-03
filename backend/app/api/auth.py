@@ -15,7 +15,7 @@ from app.models.university import University
 from app.schemas.university import UniversityRead
 from app.core.limiter import limiter
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.post("/register", response_model=UserRead)

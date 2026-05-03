@@ -12,7 +12,7 @@ from app.core.celery_app import celery_app
 from app.tasks.image_tasks import compress_image_task
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 logger = logging.getLogger(__name__)
 

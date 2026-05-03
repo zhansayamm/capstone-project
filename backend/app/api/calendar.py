@@ -20,7 +20,7 @@ from app.services.calendar_month_service import CalendarMonthService
 from app.services.calendar_service import CalendarService
 from app.utils.datetime_utils import LOCAL_TZ, to_local, utc_now
 
-calendar_router = APIRouter()
+calendar_router = APIRouter(redirect_slashes=False)
 
 
 @calendar_router.get("/week-summary", response_model=WeekSummaryResponse)

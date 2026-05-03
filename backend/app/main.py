@@ -10,6 +10,7 @@ import logging
 from slowapi.errors import RateLimitExceeded
 from sqlmodel import SQLModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api import (
@@ -51,6 +52,20 @@ app = FastAPI(
     version="1.0.0",
     redirect_slashes=False,
 )
+
+
+class StripTrailingSlashMiddleware(BaseHTTPMiddleware):
+    """Normalize ``/resource/`` → ``/resource`` so clients are not sensitive to slash style."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if len(path) > 1 and path.endswith("/"):
+            request.scope["path"] = path.rstrip("/")
+            raw = request.scope.get("raw_path")
+            if isinstance(raw, (bytes, bytearray)) and raw:
+                request.scope["raw_path"] = request.scope["path"].encode("utf-8")
+        return await call_next(request)
+
 
 _cors_origins = get_cors_origins()
 _cors_origin_regex = get_cors_allow_origin_regex()
@@ -125,6 +140,7 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+app.add_middleware(StripTrailingSlashMiddleware)
 
 
 app.state.limiter = limiter

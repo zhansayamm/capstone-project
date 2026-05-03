@@ -9,7 +9,7 @@ from app.services.slot_service import SlotService
 from app.core.limiter import limiter
 
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 @router.post("", response_model=list[SlotRead])
 @limiter.limit("10/minute;120/hour")
