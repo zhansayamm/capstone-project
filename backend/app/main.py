@@ -59,32 +59,6 @@ validate_cors_credentials_safe(_cors_origins)
 # CORSMiddleware must be outer so OPTIONS preflight is answered before TrustedHost / HTTP middleware
 # and never hits route dependencies (JWT is only on routes, not global — preflight still must not
 # depend on inner layers rejecting OPTIONS).
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"],
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_origin_regex=_cors_origin_regex,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
-
-app.state.limiter = limiter
-
-
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        status_code=429,
-        content={
-            "error": "Too Many Requests",
-            "message": "Rate limit exceeded. Try again later.",
-        },
-    )
-
 
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
@@ -136,6 +110,33 @@ async def request_logging_middleware(request: Request, call_next):
 
     return response
 
+    
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"],
+)
+
+
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "Too Many Requests",
+            "message": "Rate limit exceeded. Try again later.",
+        },
+    )
 
 @app.exception_handler(AppException)
 def app_exception_handler(request: Request, exc: AppException):
