@@ -150,7 +150,21 @@ export function ProfessorBookingsPage() {
                         }}
                       >
                         <Space>
-                          <Avatar style={{ background: "#1677ff" }}>{initials}</Avatar>
+                          <Avatar
+                            shape="circle"
+                            size="small"
+                            style={{
+                              background: "#1677ff",
+                              flexShrink: 0,
+                              width: 24,
+                              height: 24,
+                              minWidth: 24,
+                              minHeight: 24,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {initials}
+                          </Avatar>
                           <div>
                             <Typography.Text strong>{formatUserName(b.student, { id: b.student_id })}</Typography.Text>
                             <div>

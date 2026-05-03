@@ -53,13 +53,18 @@ export function AppTopbar() {
           style={{ padding: 0, display: "flex", alignItems: "center" }}
         >
           <Avatar
+            shape="circle"
             size={36}
             src={avatarSrc}
             style={{
               backgroundColor: "#3b82f6",
+              flexShrink: 0,
               width: 36,
               height: 36,
+              minWidth: 36,
+              minHeight: 36,
               borderRadius: "50%",
+              overflow: "hidden",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

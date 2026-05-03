@@ -130,7 +130,20 @@ export function ProfilePage() {
                   <Space direction="vertical" size={14} style={{ width: "100%" }}>
                     <Flex align="center" justify="space-between" gap={14}>
                       <Flex align="center" gap={14} style={{ minWidth: 0 }}>
-                        <Avatar size={72} src={avatarSrc} style={{ backgroundColor: "#1677ff" }}>
+                        <Avatar
+                          shape="circle"
+                          size={72}
+                          src={avatarSrc}
+                          style={{
+                            backgroundColor: "#1677ff",
+                            flexShrink: 0,
+                            width: 72,
+                            height: 72,
+                            minWidth: 72,
+                            minHeight: 72,
+                            overflow: "hidden",
+                          }}
+                        >
                           {initials}
                         </Avatar>
                         <div style={{ minWidth: 0 }}>

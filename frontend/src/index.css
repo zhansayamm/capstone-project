@@ -29,3 +29,16 @@ tr.app-row-past {
   opacity: 0.55;
   filter: grayscale(0.2);
 }
+
+/* Ant Design Avatar: keep image avatars circular (no ellipse) and uncropped proportionally */
+.ant-avatar.ant-avatar-circle.ant-avatar-image > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ant-avatar.ant-avatar-circle {
+  flex-shrink: 0;
+  overflow: hidden;
+}

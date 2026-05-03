@@ -211,7 +211,19 @@ export function ProfessorSlotsPage() {
                             {s.is_booked ? <Tag color="orange">Booked</Tag> : <Tag color="green">Available</Tag>}
                             {s.is_booked && s.booked_by ? (
                               <Space size={6}>
-                                <Avatar size="small" style={{ background: "#1677ff" }}>
+                                <Avatar
+                                  shape="circle"
+                                  size="small"
+                                  style={{
+                                    background: "#1677ff",
+                                    flexShrink: 0,
+                                    width: 24,
+                                    height: 24,
+                                    minWidth: 24,
+                                    minHeight: 24,
+                                    overflow: "hidden",
+                                  }}
+                                >
                                   {(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
                                 </Avatar>
                                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -292,7 +304,19 @@ export function ProfessorSlotsPage() {
                         {s.is_booked ? <Tag color="orange">Booked</Tag> : <Tag color="green">Available</Tag>}
                         {s.is_booked && s.booked_by ? (
                           <Space size={6}>
-                            <Avatar size="small" style={{ background: "#1677ff" }}>
+                            <Avatar
+                              shape="circle"
+                              size="small"
+                              style={{
+                                background: "#1677ff",
+                                flexShrink: 0,
+                                width: 24,
+                                height: 24,
+                                minWidth: 24,
+                                minHeight: 24,
+                                overflow: "hidden",
+                              }}
+                            >
                               {(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
                             </Avatar>
                             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -346,7 +370,19 @@ export function ProfessorSlotsPage() {
             <Typography.Text strong>Student</Typography.Text>
             {viewSlot.booked_by ? (
               <Space>
-                <Avatar style={{ background: "#1677ff" }}>
+                <Avatar
+                  shape="circle"
+                  size={40}
+                  style={{
+                    background: "#1677ff",
+                    flexShrink: 0,
+                    width: 40,
+                    height: 40,
+                    minWidth: 40,
+                    minHeight: 40,
+                    overflow: "hidden",
+                  }}
+                >
                   {(formatUserName(viewSlot.booked_by, { email: viewSlot.booked_by.email })[0] ?? "S").toUpperCase()}
                 </Avatar>
                 <div>
