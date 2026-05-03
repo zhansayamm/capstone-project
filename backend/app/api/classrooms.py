@@ -9,7 +9,7 @@ from app.services.classroom_service import ClassroomService
 
 router = APIRouter()
 
-@router.post("/", response_model=ClassroomRead)
+@router.post("", response_model=ClassroomRead)
 def create_classroom(
     data: ClassroomCreate,
     current_user = Depends(require_admin),
@@ -17,7 +17,7 @@ def create_classroom(
 ):
     return ClassroomService.create_classroom(session=session, admin=current_user, data=data)
 
-@router.get("/", response_model=List[ClassroomRead])
+@router.get("", response_model=List[ClassroomRead])
 def get_classrooms(
     session: Session = Depends(get_session),
     current_user=Depends(get_optional_user),

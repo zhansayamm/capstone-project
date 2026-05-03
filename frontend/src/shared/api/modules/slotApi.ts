@@ -19,7 +19,7 @@ export type ListSlotsParams = {
 };
 
 export async function getSlots(params: ListSlotsParams = {}): Promise<Slot[]> {
-  const res = await apiClient.get<Slot[]>("/slots/", { params });
+  const res = await apiClient.get<Slot[]>("/slots", { params });
   return res.data;
 }
 
@@ -29,7 +29,7 @@ export async function getMySlots(): Promise<Slot[]> {
 }
 
 export async function createSlot(data: CreateSlotRequest): Promise<Slot[]> {
-  const res = await apiClient.post<Slot[]>("/slots/", data);
+  const res = await apiClient.post<Slot[]>("/slots", data);
   return res.data;
 }
 

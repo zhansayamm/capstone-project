@@ -11,7 +11,7 @@ from app.core.limiter import limiter
 
 router = APIRouter()
 
-@router.post("/", response_model=ReservationRead)
+@router.post("", response_model=ReservationRead)
 @limiter.limit("10/minute;120/hour")
 def create_reservation(
     request: Request,
@@ -33,7 +33,7 @@ def get_my_reservations(
         session=session, user=current_user, limit=limit, offset=offset, upcoming=upcoming
     )
 
-@router.get("/", response_model=List[ReservationRead])
+@router.get("", response_model=List[ReservationRead])
 def get_all_reservations(
     current_user=Depends(require_admin),
     session: Session = Depends(get_session),

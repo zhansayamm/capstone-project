@@ -13,7 +13,7 @@ from app.core.limiter import limiter
 
 router = APIRouter()
 
-@router.get("/", response_model=List[BookingRead])
+@router.get("", response_model=List[BookingRead])
 def list_bookings(
     current_user=Depends(require_admin),
     session: Session = Depends(get_session),
@@ -29,7 +29,7 @@ def list_bookings(
         upcoming=upcoming,
     )
 
-@router.post("/", response_model=BookingRead)
+@router.post("", response_model=BookingRead)
 @limiter.limit("10/minute;120/hour")
 def create_booking(
     request: Request,

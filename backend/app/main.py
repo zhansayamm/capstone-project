@@ -49,6 +49,7 @@ app = FastAPI(
     title="Booking Time API",
     description="University booking system (office hours + classrooms)",
     version="1.0.0",
+    redirect_slashes=False,
 )
 
 _cors_origins = get_cors_origins()

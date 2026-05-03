@@ -10,12 +10,12 @@ from app.services.university_service import UniversityService
 router = APIRouter()
 
 
-@router.get("/", response_model=list[UniversityRead])
+@router.get("", response_model=list[UniversityRead])
 def list_universities(session: Session = Depends(get_session)):
     return UniversityService.list_universities(session=session)
 
 
-@router.post("/", response_model=UniversityRead)
+@router.post("", response_model=UniversityRead)
 def create_university(
     data: UniversityCreate,
     current_user=Depends(require_admin),

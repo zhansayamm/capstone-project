@@ -8,7 +8,7 @@ export type CreateReservationRequest = {
 };
 
 export async function createReservation(data: CreateReservationRequest): Promise<Reservation> {
-  const res = await apiClient.post<Reservation>("/reservations/", data);
+  const res = await apiClient.post<Reservation>("/reservations", data);
   return res.data;
 }
 
@@ -24,7 +24,7 @@ export async function getReservations(params?: {
   user_id?: number;
   upcoming?: boolean;
 }): Promise<Reservation[]> {
-  const res = await apiClient.get<Reservation[]>("/reservations/", { params });
+  const res = await apiClient.get<Reservation[]>("/reservations", { params });
   return res.data;
 }
 
