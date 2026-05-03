@@ -48,9 +48,9 @@ logger = logging.getLogger("booking-system")
 
 app = FastAPI(
     title="Booking Time API",
-    description="University booking system (office hours + classrooms)",
     version="1.0.0",
     redirect_slashes=False,
+    description="University booking system (office hours + classrooms)",
 )
 
 
@@ -200,6 +200,8 @@ def generic_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 def on_startup():
+    # Temporary: confirm deploy picked up redirect_slashes=False (remove after verifying logs).
+    print("Redirect slashes:", app.router.redirect_slashes)
     logger.info("password_hash_backend=%s", PASSWORD_HASH_BACKEND)
     validate_production_secrets()
     probe_database(engine)
@@ -217,6 +219,7 @@ def on_startup():
         ) from exc
 
 
+# Router prefixes must not end with "/" (no duplicate /slots vs /slots/ mounts).
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(slots.router, prefix="/slots", tags=["Slots"])
 app.include_router(bookings.router, prefix="/bookings", tags=["Bookings"])
