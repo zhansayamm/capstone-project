@@ -50,17 +50,45 @@ def get_database_url() -> str:
 
 
 def get_cors_origins() -> List[str]:
-    """Parse ``CORS_ORIGINS`` (comma-separated). Strips whitespace and trailing slashes per origin."""
-    default = (
-        "http://localhost:5173,http://127.0.0.1:5173,"
-        "https://your-frontend.vercel.app"
-    )
-    raw = (os.getenv("CORS_ORIGINS") or default).strip()
-    return [
-        o.strip().rstrip("/")
-        for o in raw.split(",")
-        if o.strip()
-    ]
+    """Build ``allow_origins`` for CORSMiddleware (no hardcoded deploy URLs).
+
+    - **FRONTEND_URL** (comma-separated): primary Vercel / frontend origins, e.g.
+      ``https://my-app.vercel.app`` or two URLs for prod + preview.
+    - **CORS_ORIGINS** (comma-separated): optional extra origins merged without duplicates
+      (e.g. ``http://localhost:5173`` while ``FRONTEND_URL`` points at Vercel).
+    - Local dev: if neither is set and not Railway/production, defaults to Vite localhost origins.
+    - Railway / production tier: at least one of ``FRONTEND_URL`` or ``CORS_ORIGINS`` must be set.
+    """
+    out: List[str] = []
+
+    front = (os.getenv("FRONTEND_URL") or "").strip()
+    if front:
+        for o in front.split(","):
+            x = o.strip().rstrip("/")
+            if x and x not in out:
+                out.append(x)
+
+    cors_extra = (os.getenv("CORS_ORIGINS") or "").strip()
+    if cors_extra:
+        for o in cors_extra.split(","):
+            x = o.strip().rstrip("/")
+            if x and x not in out:
+                out.append(x)
+
+    if not out:
+        if _running_on_railway() or is_production():
+            raise RuntimeError(
+                "Set FRONTEND_URL to your Vercel site origin (e.g. https://my-app.vercel.app). "
+                "Comma-separate multiple origins if needed. On Railway/production, FRONTEND_URL or "
+                "CORS_ORIGINS must be non-empty — there is no insecure default."
+            )
+        default = "http://localhost:5173,http://127.0.0.1:5173"
+        for o in default.split(","):
+            x = o.strip().rstrip("/")
+            if x and x not in out:
+                out.append(x)
+
+    return out
 
 
 def get_cors_allow_origin_regex() -> str | None:
@@ -82,10 +110,12 @@ def validate_cors_credentials_safe(origins: List[str]) -> None:
     """Starlette forbids wildcard origins when credentials are allowed; fail fast."""
     cleaned = [o for o in origins if o.strip()]
     if not cleaned:
-        raise RuntimeError("CORS_ORIGINS must list at least one origin (comma-separated); empty is not allowed.")
+        raise RuntimeError(
+            "CORS allow_origins is empty. Set FRONTEND_URL and/or CORS_ORIGINS (comma-separated origins).",
+        )
     if any(o == "*" for o in cleaned):
         raise RuntimeError(
-            'CORS_ORIGINS must not contain "*" while allow_credentials=True. '
+            'FRONTEND_URL / CORS_ORIGINS must not contain "*" while allow_credentials=True. '
             "List explicit HTTPS origins for your frontend (e.g. https://app.vercel.app).",
         )
 

@@ -27,8 +27,9 @@
    | `DATABASE_URL` | Required on Railway. Supports `postgres://`, `postgresql://`, and `postgresql+psycopg2://` (unchanged). The app normalizes to `postgresql+psycopg2://`. |
    | `SECRET_KEY` | Long random string, e.g. `openssl rand -hex 32` (minimum 16 characters). Required whenever the service detects Railway or `ENVIRONMENT=production`. |
    | `ENVIRONMENT` | **`production`** is required on Railway unless you use **`staging`** for a staging slot. Deploys that still resolve as `development` on Railway abort startup (`RAILWAY_ENVIRONMENT`/`ENVIRONMENT` should be explicit). |
-   | `CORS_ORIGINS` | Optional. Defaults include `localhost:5173` and `https://your-frontend.vercel.app`. **`CORS_ORIGINS` must never be `*`** when cookies/credentials are used — the API rejects wildcard origins at boot. Add your real production origin(s), comma-separated. |
-   | *(built-in)* | By default the API also allows any **`https://*.vercel.app`** origin via `allow_origin_regex` (Vercel previews + production). Set **`CORS_VERCEL_REGEX=0`** to turn that off, or **`CORS_ORIGIN_REGEX`** to override the pattern. If OPTIONS preflight returns **400**, the browser `Origin` was not allowed — fix `CORS_ORIGINS` / regex / custom domain. |
+   | `FRONTEND_URL` | **Required on Railway** (unless you set `CORS_ORIGINS` instead). Your Vercel site origin with no path, e.g. `https://my-app.vercel.app`. Comma-separate multiple origins if needed. Not hardcoded — must match the browser `Origin` header. |
+   | `CORS_ORIGINS` | Optional extra comma-separated origins merged with `FRONTEND_URL` (e.g. `http://localhost:5173` for local UI against Railway API). Must never be `*` when credentials are used. |
+   | *(built-in)* | By default the API also allows **`https://*.vercel.app`** via `allow_origin_regex` (Vercel previews). Set **`CORS_VERCEL_REGEX=0`** to disable, or **`CORS_ORIGIN_REGEX`** to override. Custom domains must appear in `FRONTEND_URL` or `CORS_ORIGINS`. If OPTIONS returns **400**, the `Origin` did not match the list or regex. |
 
    Optional:
 
@@ -59,7 +60,7 @@
 
 ## Frontend (Vercel)
 
-Set your real Vercel app URL in `CORS_ORIGINS` (and keep `http://localhost:5173` for local dev if desired).
+Set **`FRONTEND_URL`** to your Vercel origin (e.g. `https://my-app.vercel.app`). Add **`CORS_ORIGINS=http://localhost:5173`** if you call the Railway API from the Vite dev server.
 
 ## Troubleshooting: `passlib` / `pwd_context.verify` / 72-byte bcrypt errors
 

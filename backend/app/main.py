@@ -55,6 +55,14 @@ _cors_origins = get_cors_origins()
 _cors_origin_regex = get_cors_allow_origin_regex()
 validate_cors_credentials_safe(_cors_origins)
 
+# Middleware runs in reverse registration order: last added = outermost = runs first.
+# CORSMiddleware must be outer so OPTIONS preflight is answered before TrustedHost / HTTP middleware
+# and never hits route dependencies (JWT is only on routes, not global — preflight still must not
+# depend on inner layers rejecting OPTIONS).
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -62,11 +70,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
-)
-
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"],
 )
 
 app.state.limiter = limiter
