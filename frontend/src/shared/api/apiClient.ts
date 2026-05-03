@@ -16,7 +16,7 @@ let authStoreRef: AuthStoreLike | null = null;
 
 export const apiClient: AxiosInstance = axios.create({
   // Backend base URL (FastAPI). Configure via VITE_API_URL in frontend/.env.
-  baseURL: String(API_URL || "http://localhost:8000"),
+  baseURL: String(API_URL || "http://localhost:8000").replace(/\/$/, ""),
   timeout: 25_000,
   withCredentials: true,
 });

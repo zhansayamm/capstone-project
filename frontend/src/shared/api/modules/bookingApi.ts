@@ -12,7 +12,7 @@ export async function bookSlot(slot_id_or_payload: number | CreateBookingRequest
           description: slot_id_or_payload.description ?? null,
           participants: slot_id_or_payload.participants ?? null,
         };
-  const res = await apiClient.post<Booking>("/bookings", payload);
+  const res = await apiClient.post<Booking>("/bookings/", payload);
   return res.data;
 }
 
@@ -27,7 +27,7 @@ export async function getProfessorBookings(params?: { limit?: number; offset?: n
 }
 
 export async function getBookings(params?: { limit?: number; offset?: number; upcoming?: boolean }): Promise<Booking[]> {
-  const res = await apiClient.get<Booking[]>("/bookings", { params });
+  const res = await apiClient.get<Booking[]>("/bookings/", { params });
   return res.data;
 }
 

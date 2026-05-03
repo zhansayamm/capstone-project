@@ -28,7 +28,7 @@ export async function getMe(): Promise<User> {
 }
 
 export async function listUniversities(): Promise<Array<{ id: number; name: string }>> {
-  const res = await apiClient.get<Array<{ id: number; name: string }>>("/universities");
+  const res = await apiClient.get<Array<{ id: number; name: string }>>("/universities/");
   return res.data;
 }
 

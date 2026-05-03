@@ -12,12 +12,12 @@ export type UpdateClassroomRequest = {
 };
 
 export async function getClassrooms(): Promise<Classroom[]> {
-  const res = await apiClient.get<Classroom[]>("/classrooms");
+  const res = await apiClient.get<Classroom[]>("/classrooms/");
   return res.data;
 }
 
 export async function createClassroom(data: CreateClassroomRequest): Promise<Classroom> {
-  const res = await apiClient.post<Classroom>("/classrooms", data);
+  const res = await apiClient.post<Classroom>("/classrooms/", data);
   return res.data;
 }
 

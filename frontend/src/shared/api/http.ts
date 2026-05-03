@@ -15,7 +15,7 @@ let configured = false;
 let authStoreRef: AuthStoreLike | null = null;
 
 export const http: AxiosInstance = axios.create({
-  baseURL: String(API_URL || "http://localhost:8000"),
+  baseURL: String(API_URL || "http://localhost:8000").replace(/\/$/, ""),
   timeout: 25_000,
   withCredentials: true,
 });
