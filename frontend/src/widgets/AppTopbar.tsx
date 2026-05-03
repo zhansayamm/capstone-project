@@ -1,9 +1,10 @@
-import { Avatar, Button, Layout, Tag, Typography } from "antd";
+import { Button, Layout, Tag, Typography } from "antd";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { API_URL } from "../config/api";
 import { useAuthStore } from "../features/auth/store/useAuthStore";
+import { CircleAvatar } from "../shared/ui/CircleAvatar";
 import { NotificationsDropdown } from "./notifications/NotificationsDropdown";
 
 export function AppTopbar() {
@@ -52,28 +53,7 @@ export function AppTopbar() {
           aria-label="Open profile"
           style={{ padding: 0, display: "flex", alignItems: "center" }}
         >
-          <Avatar
-            shape="circle"
-            size={36}
-            src={avatarSrc}
-            style={{
-              backgroundColor: "#3b82f6",
-              flexShrink: 0,
-              width: 36,
-              height: 36,
-              minWidth: 36,
-              minHeight: 36,
-              borderRadius: "50%",
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#fff", lineHeight: 1 }}>
-              {initials}
-            </span>
-          </Avatar>
+          <CircleAvatar sizePx={36} src={avatarSrc} alt="Profile avatar" fallback={initials} fallbackBg="#3b82f6" />
         </Button>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

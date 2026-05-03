@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Badge,
   Button,
   Calendar,
@@ -21,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Dayjs } from "dayjs";
 
 import { createSlot, deleteSlot, listMySlots } from "../../features/slots/api/slotApi";
+import { CircleAvatar } from "../../shared/ui/CircleAvatar";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { disabledTimeForBusinessHours, isWithinBusinessHours } from "../../shared/utils/businessHours";
 import { formatDateTime } from "../../shared/utils/dateDisplay";
@@ -210,22 +210,12 @@ export function ProfessorSlotsPage() {
                             </Typography.Text>
                             {s.is_booked ? <Tag color="orange">Booked</Tag> : <Tag color="green">Available</Tag>}
                             {s.is_booked && s.booked_by ? (
-                              <Space size={6}>
-                                <Avatar
-                                  shape="circle"
-                                  size="small"
-                                  style={{
-                                    background: "#1677ff",
-                                    flexShrink: 0,
-                                    width: 24,
-                                    height: 24,
-                                    minWidth: 24,
-                                    minHeight: 24,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  {(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
-                                </Avatar>
+                              <Space size={6} align="center">
+                                <CircleAvatar
+                                  sizePx={24}
+                                  alt=""
+                                  fallback={(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
+                                />
                                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                                   {formatUserName(s.booked_by, { email: s.booked_by.email })}
                                 </Typography.Text>
@@ -303,22 +293,12 @@ export function ProfessorSlotsPage() {
                         </Typography.Text>
                         {s.is_booked ? <Tag color="orange">Booked</Tag> : <Tag color="green">Available</Tag>}
                         {s.is_booked && s.booked_by ? (
-                          <Space size={6}>
-                            <Avatar
-                              shape="circle"
-                              size="small"
-                              style={{
-                                background: "#1677ff",
-                                flexShrink: 0,
-                                width: 24,
-                                height: 24,
-                                minWidth: 24,
-                                minHeight: 24,
-                                overflow: "hidden",
-                              }}
-                            >
-                              {(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
-                            </Avatar>
+                          <Space size={6} align="center">
+                            <CircleAvatar
+                              sizePx={24}
+                              alt=""
+                              fallback={(formatUserName(s.booked_by, { email: s.booked_by.email })[0] ?? "S").toUpperCase()}
+                            />
                             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                               {formatUserName(s.booked_by, { email: s.booked_by.email })}
                             </Typography.Text>
@@ -369,22 +349,12 @@ export function ProfessorSlotsPage() {
             <Divider style={{ margin: "10px 0" }} />
             <Typography.Text strong>Student</Typography.Text>
             {viewSlot.booked_by ? (
-              <Space>
-                <Avatar
-                  shape="circle"
-                  size={40}
-                  style={{
-                    background: "#1677ff",
-                    flexShrink: 0,
-                    width: 40,
-                    height: 40,
-                    minWidth: 40,
-                    minHeight: 40,
-                    overflow: "hidden",
-                  }}
-                >
-                  {(formatUserName(viewSlot.booked_by, { email: viewSlot.booked_by.email })[0] ?? "S").toUpperCase()}
-                </Avatar>
+              <Space align="center">
+                <CircleAvatar
+                  sizePx={40}
+                  alt=""
+                  fallback={(formatUserName(viewSlot.booked_by, { email: viewSlot.booked_by.email })[0] ?? "S").toUpperCase()}
+                />
                 <div>
                   <div>
                     <Typography.Text>{formatUserName(viewSlot.booked_by, { email: viewSlot.booked_by.email })}</Typography.Text>

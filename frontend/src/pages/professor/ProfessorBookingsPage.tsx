@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Divider, Flex, Input, List, Modal, Space, Tag, Tooltip, Typography } from "antd";
+import { Button, Card, Divider, Flex, Input, List, Modal, Space, Tag, Tooltip, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { approveBooking, listBookingMessages, listProfessorBookings, postBookingMessage, rejectBooking } from "../../features/bookings/api/bookingApi";
@@ -6,6 +6,7 @@ import { useAsync } from "../../shared/hooks/useAsync";
 import { formatRange } from "../../shared/utils/dateDisplay";
 import { dayjs } from "../../shared/utils/dayjs";
 import { formatUserName } from "../../shared/utils/userDisplay";
+import { CircleAvatar } from "../../shared/ui/CircleAvatar";
 import { Page } from "../../shared/ui/Page";
 import type { Booking } from "../../shared/types/domain";
 
@@ -149,22 +150,8 @@ export function ProfessorBookingsPage() {
                           background: isPast ? "#fafafa" : "#fff",
                         }}
                       >
-                        <Space>
-                          <Avatar
-                            shape="circle"
-                            size="small"
-                            style={{
-                              background: "#1677ff",
-                              flexShrink: 0,
-                              width: 24,
-                              height: 24,
-                              minWidth: 24,
-                              minHeight: 24,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {initials}
-                          </Avatar>
+                        <Space align="center">
+                          <CircleAvatar sizePx={24} alt="" fallback={initials} />
                           <div>
                             <Typography.Text strong>{formatUserName(b.student, { id: b.student_id })}</Typography.Text>
                             <div>

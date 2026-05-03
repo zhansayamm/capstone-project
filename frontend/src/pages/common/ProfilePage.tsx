@@ -1,5 +1,5 @@
 import { BankOutlined, CameraOutlined, MailOutlined, SafetyOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Descriptions, Divider, Flex, Modal, Skeleton, Space, Tag, Typography, Upload, message } from "antd";
+import { Button, Card, Descriptions, Divider, Flex, Modal, Skeleton, Space, Tag, Typography, Upload, message } from "antd";
 import type { UploadProps } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
@@ -11,6 +11,7 @@ import { setMyAvatar } from "../../shared/api/modules/userApi";
 import { API_URL } from "../../config/api";
 import { useAsync } from "../../shared/hooks/useAsync";
 import { debugError, debugLog } from "../../shared/utils/debug";
+import { CircleAvatar } from "../../shared/ui/CircleAvatar";
 import { Page } from "../../shared/ui/Page";
 
 function roleLabel(role: string | undefined) {
@@ -130,22 +131,7 @@ export function ProfilePage() {
                   <Space direction="vertical" size={14} style={{ width: "100%" }}>
                     <Flex align="center" justify="space-between" gap={14}>
                       <Flex align="center" gap={14} style={{ minWidth: 0 }}>
-                        <Avatar
-                          shape="circle"
-                          size={72}
-                          src={avatarSrc}
-                          style={{
-                            backgroundColor: "#1677ff",
-                            flexShrink: 0,
-                            width: 72,
-                            height: 72,
-                            minWidth: 72,
-                            minHeight: 72,
-                            overflow: "hidden",
-                          }}
-                        >
-                          {initials}
-                        </Avatar>
+                        <CircleAvatar sizePx={72} src={avatarSrc} alt="Profile avatar" fallback={initials} />
                         <div style={{ minWidth: 0 }}>
                           <Typography.Title level={3} style={{ margin: 0 }} ellipsis>
                             {displayName}
