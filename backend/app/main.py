@@ -50,7 +50,6 @@ app = FastAPI(
     title="Booking Time API",
     version="1.0.0",
     redirect_slashes=False,
-    description="University booking system (office hours + classrooms)",
 )
 
 
@@ -200,8 +199,6 @@ def generic_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 def on_startup():
-    # Temporary: confirm deploy picked up redirect_slashes=False (remove after verifying logs).
-    print("Redirect slashes:", app.router.redirect_slashes)
     logger.info("password_hash_backend=%s", PASSWORD_HASH_BACKEND)
     validate_production_secrets()
     probe_database(engine)
@@ -249,3 +246,13 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+print("\n=== REGISTERED ROUTES ===")
+for route in app.routes:
+    p = getattr(route, "path", None)
+    if p is not None:
+        print(p)
+    else:
+        print(type(route).__name__, route)
+print("=========================\n")
