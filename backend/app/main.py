@@ -26,6 +26,7 @@ from app.api import (
     users,
 )
 from app.core.config import (
+    get_cors_allow_origin_regex,
     get_cors_origins,
     is_production,
     settings,
@@ -51,11 +52,13 @@ app = FastAPI(
 )
 
 _cors_origins = get_cors_origins()
+_cors_origin_regex = get_cors_allow_origin_regex()
 validate_cors_credentials_safe(_cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,

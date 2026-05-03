@@ -27,7 +27,8 @@
    | `DATABASE_URL` | Required on Railway. Supports `postgres://`, `postgresql://`, and `postgresql+psycopg2://` (unchanged). The app normalizes to `postgresql+psycopg2://`. |
    | `SECRET_KEY` | Long random string, e.g. `openssl rand -hex 32` (minimum 16 characters). Required whenever the service detects Railway or `ENVIRONMENT=production`. |
    | `ENVIRONMENT` | **`production`** is required on Railway unless you use **`staging`** for a staging slot. Deploys that still resolve as `development` on Railway abort startup (`RAILWAY_ENVIRONMENT`/`ENVIRONMENT` should be explicit). |
-   | `CORS_ORIGINS` | Optional. Defaults include `localhost:5173` and `https://your-frontend.vercel.app`. **`CORS_ORIGINS` must never be `*`** when cookies/credentials are used — the API rejects wildcard origins at boot. Replace the Vercel URL with your real frontend origin(s), comma-separated. |
+   | `CORS_ORIGINS` | Optional. Defaults include `localhost:5173` and `https://your-frontend.vercel.app`. **`CORS_ORIGINS` must never be `*`** when cookies/credentials are used — the API rejects wildcard origins at boot. Add your real production origin(s), comma-separated. |
+   | *(built-in)* | By default the API also allows any **`https://*.vercel.app`** origin via `allow_origin_regex` (Vercel previews + production). Set **`CORS_VERCEL_REGEX=0`** to turn that off, or **`CORS_ORIGIN_REGEX`** to override the pattern. If OPTIONS preflight returns **400**, the browser `Origin` was not allowed — fix `CORS_ORIGINS` / regex / custom domain. |
 
    Optional:
 

@@ -58,6 +58,21 @@ def get_cors_origins() -> List[str]:
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
+def get_cors_allow_origin_regex() -> str | None:
+    """Optional regex so Vercel preview URLs (*.vercel.app) pass CORS without listing each branch.
+
+    Starlette matches the full ``Origin`` header. Set ``CORS_VERCEL_REGEX=0`` to disable the
+    built-in Vercel pattern, or set ``CORS_ORIGIN_REGEX`` to a custom pattern.
+    """
+    custom = (os.getenv("CORS_ORIGIN_REGEX") or "").strip()
+    if custom:
+        return custom
+    if os.getenv("CORS_VERCEL_REGEX", "1").strip().lower() in ("0", "false", "no", "off"):
+        return None
+    # Production + preview deploys: https://<anything>.vercel.app
+    return r"^https://[\w.-]+\.vercel\.app$"
+
+
 def validate_cors_credentials_safe(origins: List[str]) -> None:
     """Starlette forbids wildcard origins when credentials are allowed; fail fast."""
     cleaned = [o for o in origins if o.strip()]
