@@ -219,7 +219,7 @@ def root():
         "message": "Booking Time API is running",
         "docs": "/docs",
     }
-print("CORS_ORIGINS:", _cors_origins)
+
 
 @app.get("/health")
 def health():

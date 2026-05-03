@@ -50,12 +50,17 @@ def get_database_url() -> str:
 
 
 def get_cors_origins() -> List[str]:
+    """Parse ``CORS_ORIGINS`` (comma-separated). Strips whitespace and trailing slashes per origin."""
     default = (
         "http://localhost:5173,http://127.0.0.1:5173,"
         "https://your-frontend.vercel.app"
     )
     raw = (os.getenv("CORS_ORIGINS") or default).strip()
-    return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        o.strip().rstrip("/")
+        for o in raw.split(",")
+        if o.strip()
+    ]
 
 
 def get_cors_allow_origin_regex() -> str | None:
